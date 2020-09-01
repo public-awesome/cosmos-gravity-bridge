@@ -36,3 +36,16 @@ sleep 10
 
 bash /peggy/tests/container-scripts/run-eth.sh &
 sleep 10
+
+# deploy peggy and our test ERC20 contract 'BitcoinMAX'
+# note the eth private key passed here gets funds over in test/assets/ETHGenesis.json
+# note the directory change to gain access to node_modules already installed for the solidity
+# toolchain
+pushd /peggy/solidity/
+npx ts-node /peggy/solidity/contract-deployer.ts \
+--eth-node=http://localhost:8545 \
+--eth-privkey=0xb1bab011e03a9862664706fc3bbaa1b16651528e5f0e7fbfcbfdd8be302a13e7 \
+--contract=/peggy/solidity/artifacts/Peggy.json \
+--test-mode=true \
+--erc20-contract=/peggy/solidity/artifacts/TestERC20.json
+
