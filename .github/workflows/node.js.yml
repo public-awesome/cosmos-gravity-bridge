@@ -26,4 +26,5 @@ jobs:
         node-version: ${{ matrix.node-version }}
     - run: cd solidity && npm ci
     - run: cd solidity && npm run typechain
-    - run: cd solidity && npm run evm && npm run test
+    - run: cd solidity && npm run evm & 
+    - run: cd solidity && npm run test
