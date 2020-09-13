@@ -5,10 +5,35 @@ import (
 	"math/big"
 	"strings"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
+
+// ValsetIndex an index of valset requests that is updated with info
+// by message handlers. This allows for endpoints that do things like
+// 'list every available valset' or 'what signatures have been submitted
+// for this valset'
+type ValsetIndex struct {
+	ValsetRequests      map[int64]Valset
+	ValsetConfirmations map[int64]map[*sdk.AccAddress]ValsetIndexEntry
+}
+
+// ValsetIndexEntry is a struct to help organize list entires in the valset
+// index, which is really just a map placed in the store and updated every time
+// a new message is handled successfully. This allows for endpoints that do things
+// like 'list every available valset'
+// each ValsetIndexEntry is a single validators data.
+type ValsetIndexEntry struct {
+	Nonce int64
+	// may be zero if this EthAddress is not in the original Valset
+	Power         int64
+	EthAddress    string
+	CosmosAddress sdk.AccAddress
+	// must be a valid sig over the Valset to be accepted
+	Signature string
+}
 
 type Valset struct {
 	Nonce        int64
@@ -24,8 +49,10 @@ func (v Valset) GetCheckpoint() []byte {
 	// The go-ethereum ABI encoder *only* encodes function calls and then it only encodes
 	// function calls for which you provide an ABI json just like you would get out of the
 	// solidity compiler with your compiled contract.
+	//
 	// You are supposed to compile your contract, use abigen to generate an ABI , import
 	// this generated go module and then use for that for all testing and development.
+	//
 	// This abstraction layer is more trouble than it's worth, because we don't want to
 	// encode a function call at all, but instead we want to emulate a Solidity encode operation
 	// which has no equal available from go-ethereum.

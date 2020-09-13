@@ -26,6 +26,56 @@ func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, stakingKeeper types.Stak
 	}
 }
 
+// GetValsetIndex gets the valset index if it exists, other wise it returns
+// an empty map
+func (k Keeper) GetValsetIndex(ctx sdk.Context) types.ValsetIndex {
+	store := ctx.KVStore(k.storeKey)
+	val := store.Get(types.GetValsetIndexKey())
+	if val != nil {
+		index := types.ValsetIndex{}
+		k.cdc.MustUnmarshalBinaryBare(val, &index)
+		return index
+	}
+	return types.ValsetIndex{
+		ValsetRequests:      make(map[int64]types.Valset),
+		ValsetConfirmations: make(map[int64]map[*sdk.AccAddress]types.ValsetIndexEntry),
+	}
+
+}
+
+// SetValsetIndex saves the provided ValsetIndex
+func (k Keeper) SetValsetIndex(ctx sdk.Context, updated types.ValsetIndex) {
+	store := ctx.KVStore(k.storeKey)
+	val := store.Get(types.GetValsetIndexKey())
+	store.Set(types.GetValsetIndexKey(), k.cdc.MustMarshalBinaryBare(val))
+}
+
+// AddRequestToValsetIndex is meant to be called in parallel to
+// SetValsetRequest and it stores that a request has been made into store
+// in such a way that it can be easily found in the future. It requires no
+// extra arguments as like SetValsetRequest it grabs everything it needs elsewhere.
+func (k Keeper) AddRequestToValsetIndex(ctx sdk.Context) {
+	valset := k.GetCurrentValset(ctx)
+	index := k.GetValsetIndex(ctx)
+	nonce := ctx.BlockHeight()
+	valset.Nonce = nonce
+	index.ValsetRequests[nonce] = valset
+	k.SetValsetIndex(ctx, index)
+}
+
+// AddConfirmToValsetIndex is meant to be called in parallel to SetValsetConfirm
+// it stores the signature provided for easy indexing
+func (k Keeper) AddConfirmToValsetIndex(ctx sdk.Context, confirmation types.MsgValsetConfirm) {
+	var index = k.GetValsetIndex(ctx)
+	var ethAddress = k.GetEthAddress(ctx, confirmation.Validator)
+	valset, exists := index.ValsetRequests[confirmation.Nonce]
+	if !exists {
+		// this can't happen, it would fail validation at sig verification
+		panic("ValsetConfirm submitted for nonce that does not have a request!")
+	}
+
+}
+
 func (k Keeper) SetValsetRequest(ctx sdk.Context) {
 	store := ctx.KVStore(k.storeKey)
 	valset := k.GetCurrentValset(ctx)

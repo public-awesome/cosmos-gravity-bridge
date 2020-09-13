@@ -24,7 +24,14 @@ var (
 	EthAddressKey    = []byte{0x1}
 	ValsetRequestKey = []byte{0x2}
 	ValsetConfirmKey = []byte{0x3}
+	ValsetIndexKey   = []byte{0x4}
 )
+
+// GetValsetIndexKey returns a fixed key, there is only one instance
+// of the valset index
+func GetValsetIndexKey() []byte {
+	return ValsetIndexKey
+}
 
 func GetEthAddressKey(validator sdk.AccAddress) []byte {
 	return append(EthAddressKey, []byte(validator)...)
