@@ -43,7 +43,11 @@ Key concepts that we mention below will be defined here:
 - `Confirmed` - Many actions in Peggy require RLP encoded signatures to be submitted by the `Orchestrators`, an operation is `Confirmed` when it is possible to execute it on Ethereum by collecting and submitting these RLP encoded signatures representing 66% of all voting power encoded in the `Last Valset`.
 - `Observed` - events on Ethereum are considered `Observed` when 66% of the active Cosmos validator set during a given block has submitted an oracle message attesting to seeing the event. Note this is distinct from `Confirmed`! At any given time the set of who can `Observe` an event and who can `Confirm` and event will be slightly different. Since `Confirmed` is based off of the `Last ValSet` and `Observed` is always up to date with the latest validator set.
 - `Validator set delta` - This is a term for the difference between the validator set currently in the Peggy Ethereum contract and the actual validator set on the Cosmos chain. Since the validator set may change every single block there is essentially guaranteed to be some nonzero `Validator set delta` at any given time.
-- `Allowed validator set delta` - This is the maximum allowed `Validator set delta` this parameter is used to determine if a Peggy contract should be adopted and if a validator set update should be sent.
+- `Allowed validator set delta` - This is the maximum allowed `Validator set delta` this parameter is used to determine if the Peggy contract in MsgProposePeggyContract has a validator set 'close enough' to accept. It is also used to determine when validator set updates need to be sent. This is decided by a governance vote _before_ MsgProposePeggyContract can be sent.
+- `Peggy ID` - This is a random 32 byte value required to be included in all Peggy signatures for a
+  particular contract instance. It is used to prevent signature reuse when contracts may share a validator set or subsets of a validator set. This is also set by a governance vote _before_ MsgProposePeggyContract can be sent.
+- `Peggy contract code hash` - This is the code hash of a known good version of the Peggy contract solidity code. It will be used to verify exactly which version of the bridge will be deployed.
+- `Start Threshold` - This is the percentage of total voting power that must be online and participating in Peggy operations before a bridge can start operating.
 
 The _Operator_ is the key unit of trust here. Each operator is responsible for maintaining 3 secure processes:
 
@@ -80,19 +84,20 @@ be attributed to a signature from one of these sets, and proven **on the Cosmos 
 a security level equal to the minimum of the Peg-Zone Validator Set, or reorganizing the Ethereum Chain 50 blocks.
 And provide a security equivalent to or greater than IBC.
 
-## Bootstraping
+## Bootstrapping
 
 We assume the act of upgrading the Cosmos-based binary to have peggy module is already complete,
 as approaches to that are discussed in many other places. Here we focus on the _activation_ step.
 
-1. Each `Operator` generates an Ethereum and Cosmos private key for the `Orchestrator`. These addresses are signed and submitted by the Operators valoper key. The `Orchestrator` is now free to use these delegated keys for all Peggy messages.
-1. Each `Operator` configures their `Orchestrator` with the `Peggy Bridge ID` and `start threshold` they wish, their `Orchestrator` is to reject any proposals that do not agree on these values.
-1. Anyone submits a Peggy contract using a known codehash and the current validator set of the Cosmos zone to an Ethereum compatible blockchain. Note that step #1 must happen first because the `Orchestrator` Ethereum Addresses must be made known in order for verification to be possible.
+1. Each `Operator` generates an Ethereum and Cosmos private key for the `Orchestrator`. These addresses are signed and submitted by the Operators valoper key in a MsgRegisterOrchestrator. The `Orchestrator` is now free to use these delegated keys for all Peggy messages.
+1. Governance votes are held individually on bridge parameters including `Peggy ID`, `Allowed validator set delta`, `start threshold`, and `Peggy contract code hash`
+1. Anyone deploys a Peggy contract using a known codehash and the current validator set of the Cosmos zone to an Ethereum compatible blockchain.
 1. Each `Operator` may or may not configure their `Orchestrator` with the above Peggy contract address
-1. If configured with an address the `Orchestrator` checks the provided address. If the contract passes validation the `Orchestrator` signs and submits the contract address. Validation is defined as finding the expected code hash and a validator set matching the current set within `Allowed validator set delta`. This message also includes the proposed `Peggy Bridge ID` and `start threshold`
-1. A contract address is considered adopted when the proposed `start threshold`. Because validator sets change quickly `Orchestrators` not configured with a contract address observe the Cosmos blockchain for submissions. When an address is submitted they validate it and approve it themselves if it passes. This results in a workflow where once a valid contract is proposed it will be ratified in a matter of a few seconds.
-1. It is possible for the adoption process to fail if a race condition is intentionally created resulting in less than 66% of the validator power approving more than one valid Peggy Ethereum contract. In this case the Orchestrator will check the contract address with the majority of the power (or at random in the case of a perfect tie) and switch it's vote. This leaves only the possible edge case of >33% of `Operators` intentionally selecting a different contract address, bridge ID, or start thresholds. This would be a consensus failure and the bridge can not progress.
-1. The bridge ratification process is complete, the contract address is now placed in the store to be referenced only.
+1. If configured with an address the `Orchestrator` checks the provided address. If the contract passes validation the `Orchestrator` signs and submits a MsgProposePeggyContract. Validation is defined as finding the correct `Peggy contract code hash` and a validator set matching the current set within `Allowed validator set delta`.
+1. A contract address is considered adopted when voting power exceeding the `start threshold` as sent a MsgProposePeggyContract with the same Ethereum address.
+1. Because validator sets change quickly `Orchestrators` not configured with a contract address observe the Cosmos blockchain for submissions. When an address is submitted they validate it and approve it themselves if it passes. This results in a workflow where once a valid contract is proposed it will be ratified in a matter of a few seconds.
+1. It is possible for the adoption process to fail if a race condition is intentionally created resulting in less than 66% of the validator power approving more than one valid Peggy Ethereum contract. In this case the Orchestrator will check the contract address with the majority of the power (or at random in the case of a perfect tie) and switch it's vote. This leaves only the possible edge case of >33% of `Operators` intentionally selecting a different contract address. This would be a consensus failure and the bridge can not progress.
+1. The bridge ratification process is complete, the contract address is now placed in the store to be referenced and other operations are allowed to move forward.
 
 At this point, we know we have a contract on Ethereum with the proper _MultiSig Set_, that > `start threshold` of the _Orchestrator Set_ is online and agrees with this contract, and that the Cosmos chain has stored this contract address. Only then can we begin to accept transactions to transfer tokens
 
