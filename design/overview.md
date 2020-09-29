@@ -29,7 +29,7 @@ Key concepts that we mention below will be defined here:
 * `Operator` - This is a person (or people) who control a Cosmos SDK validator node. This is also called `valoper` or "Validator Operator" in the Cosmos SDK staking section
 * `Full Node` - This is an *Ethereum* Full Node run by an Operator
 * `Validator` - This is a Cosmos SDK Validating Node (signing blocks)
-* `Orchestrator` (name WIP) - This is a Rust binary controlled by an Operator that holds Cosmos SDK and Ethereum private keys used for signing transactions used to move tokens between the two chains. It's important to keep in mind that the `Orchestrator` binary exists only as an implementation detail, to help the `Peggy module` interface with Ethereum. In general, if something has been decided on by the `Peggy module` and a `Validator`'s `Orchestrator` does not sign it quickly enough, this is considered downtime, since the `Validator` already agreed to it in principle through the consensus process.
+* `Orchestrator` (name WIP) - This is a Rust binary controlled by an Operator that holds Cosmos SDK and Ethereum private keys used for signing transactions used to move tokens between the two chains. It's important to keep in mind that the `Orchestrator` binary exists only as an implementation detail, to help the `Peggy module` interface with Ethereum.
 * `Peggy module` - This is a Cosmos SDK module which runs in the Cosmos state machine. All `Validators` run this simultaneously, and if they disagree, this is a consensus fault.
 * `REST server` - This is the Cosmos SDK "REST Server" that runs on Port 1317, either on the validator node or another Cosmos SDK node controlled by the Operator
 * `Ethereum RPC` - This is the JSON-RPC server for the Ethereum Full Node.
