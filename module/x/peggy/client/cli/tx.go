@@ -55,6 +55,7 @@ func GetUnsafeTestingCmd(cdc *codec.Codec) *cobra.Command {
 	testingTxCmd.AddCommand(flags.PostCommands(
 		CmdUnsafeETHPrivKey(),
 		CmdUnsafeETHAddr(),
+		CmdUnsafeRelayer(cdc),
 	)...)
 
 	return testingTxCmd
