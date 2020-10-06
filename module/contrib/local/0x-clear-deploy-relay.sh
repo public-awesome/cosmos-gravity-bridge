@@ -25,10 +25,18 @@ npm run typechain ; npm run evm >> "$project_dir/evm.log" &
 npm test ./test/alex-demo-deploy.ts
 popd
 
+echo "### Initial account balance"
+echo "==========================="
+echo "## Query balance"
+peggycli q account cosmos1fs348g3qgkzug50w7sv6c8yyarftuah20ud0pu || true
+
 echo "### Start bootstrap process"
 echo "==========================="
-echo "## Observe bridge contract setup"
+echo "## Observe bridge contract setup and first Deposit"
 peggycli tx peggy unsafe_testing relay eth  0x8858eeB3DfffA017D4BCE9801D340D36Cf895CCf 0x7c2C195CD6D34B8F845992d380aADB2730bB9C6F 0x2c7dd57db9fda0ea1a1428dcaa4bec1ff7c3bd7d1a88504754e0134b77badf57 --from validator --chain-id=testing  -y -b block
+
+echo "## Query new balance"
+peggycli q account cosmos1fs348g3qgkzug50w7sv6c8yyarftuah20ud0pu || true
 
 echo "## Add ETH key"
 peggycli tx peggy update-eth-addr 0xb8662f35f9de8720424e82b232e8c98d15399490adae9ca993f5ef1dc4883690 --from validator  --chain-id=testing -b block -y
@@ -56,13 +64,13 @@ peggycli tx peggy unsafe_testing relay eth  0x8858eeB3DfffA017D4BCE9801D340D36Cf
 echo "### Start withdraw process"
 echo "=========================="
 echo "## Query balance"
-peggycli q account cosmos12flmaejjvzdtz58s4m5avx30wm8uffe7ycj4l9
+peggycli q account cosmos1fs348g3qgkzug50w7sv6c8yyarftuah20ud0pu
 
 echo "## Add ETH withdraw to pool"
-peggycli tx peggy withdraw validator 0xc783df8a850f42e7f7e57013759c285caa701eb6 1peggy39b512461b 0peggy39b512461b --from validator --chain-id=testing -b block -y
+peggycli tx peggy withdraw alice 0xc783df8a850f42e7f7e57013759c285caa701eb6 1peggy39b512461b 0peggy39b512461b --from alice --chain-id=testing -b block -y
 
 echo "## Request a batch for outgoing TX"
-peggycli tx peggy build-batch peggy39b512461b --from validator --chain-id=testing -b block -y
+peggycli tx peggy build-batch peggy39b512461b --from alice --chain-id=testing -b block -y
 
 echo "## Query pending request nonce"
 nonce=$(peggycli q peggy pending-batch-request $(peggycli keys show validator -a) -o json | jq -r ".value.nonce")
@@ -77,10 +85,10 @@ echo "## Observe batch execution"
 peggycli tx peggy unsafe_testing relay eth  0x8858eeB3DfffA017D4BCE9801D340D36Cf895CCf 0x7c2C195CD6D34B8F845992d380aADB2730bB9C6F 0x2c7dd57db9fda0ea1a1428dcaa4bec1ff7c3bd7d1a88504754e0134b77badf57 --from validator --chain-id=testing  -y -b block
 
 echo "## View attestations"
-peggycli q peggy attestation bridge_withdrawal_batch $nonce -o json | jq
+peggycli q peggy attestation bridge_withdrawal_batch "$nonce" -o json | jq
 
 echo "## Query balance"
-peggycli q account cosmos12flmaejjvzdtz58s4m5avx30wm8uffe7ycj4l9
+peggycli q account cosmos1fs348g3qgkzug50w7sv6c8yyarftuah20ud0pu
 
 echo "## Query last observed state"
 peggycli q peggy observed nonces -o json

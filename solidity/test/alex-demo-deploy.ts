@@ -44,7 +44,7 @@ describe("Alex demo", function () {
         await testERC20.functions.approve(peggy.address, amount);
 
         await peggy.functions.transferOut(
-            "cosmos12flmaejjvzdtz58s4m5avx30wm8uffe7ycj4l9",
+            "cosmos1fs348g3qgkzug50w7sv6c8yyarftuah20ud0pu",
             amount
         );
 

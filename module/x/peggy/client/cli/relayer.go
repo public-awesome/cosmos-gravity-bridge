@@ -197,7 +197,7 @@ func relayFromCosmos(cliCtx context.CLIContext, cdc *codec.Codec, bridgeContract
 			nonces,
 			big.NewInt(int64(b.Batch.Nonce.Uint64())),
 		}
-		fmt.Printf("___data: %#v", mData)
+		fmt.Printf("+++ data: %#v", mData)
 		_, err = callBridgeContract(bridgeContractAddr, client, ethPrivateKey, "submitBatch", mData)
 		if err != nil {
 			return err
@@ -430,7 +430,7 @@ func relayFromETH(cliCtx context.CLIContext, bridgeContractAddr common.Address, 
 			}
 
 		case bridgeContractLogTransferOut:
-			fmt.Printf("[Bridge] Log Name: Transfer Out\n")
+			fmt.Printf("[Bridge] Log Name: Transfer Out. This is a deposit\n")
 			var transferOutEvent BridgeContractLogTransferOut
 			if err := bridgeContractAbi.Unpack(&transferOutEvent, "TransferOutEvent", l.Data); err != nil {
 				return err
