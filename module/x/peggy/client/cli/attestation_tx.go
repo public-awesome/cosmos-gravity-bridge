@@ -320,6 +320,7 @@ func CmdOutgointTXBatchConfirm(storeKey string, cdc *codec.Codec) *cobra.Command
 			if err != nil {
 				return err
 			}
+
 			if len(res) == 0 {
 				return ErrNotFound
 			}
