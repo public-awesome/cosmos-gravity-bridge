@@ -21,12 +21,13 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/cosmos-sdk/x/auth/client/utils"
-	types2 "github.com/cosmos/cosmos-sdk/x/auth/types"
+	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	types3 "github.com/ethereum/go-ethereum/core/types"
+	ethCommon "github.com/ethereum/go-ethereum/common"
+	ethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	ethCrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -70,7 +71,7 @@ type BridgeContractMultiSigUpdate struct {
 }
 
 type BridgeContractWithdrawalBatch struct {
-	Nonce      *big.Int                `abi:"_nonce"`
+	Nonce *big.Int `abi:"_nonce"`
 }
 
 func CmdUnsafeRelayer(cdc *codec.Codec) *cobra.Command {
@@ -135,7 +136,7 @@ func CmdUnsafeRelayer(cdc *codec.Codec) *cobra.Command {
 
 const storeKey = "peggy"
 
-func relayFromCosmos(cliCtx context.CLIContext, cdc *codec.Codec, bridgeContractAddr common.Address, client *ethclient.Client, bridgeContractAddress string, cosmosAddr sdk.AccAddress, txBldr types2.TxBuilder, ethereumChainID *big.Int, ethPrivateKey *ecdsa.PrivateKey) error {
+func relayFromCosmos(cliCtx context.CLIContext, cdc *codec.Codec, bridgeContractAddr common.Address, client *ethclient.Client, bridgeContractAddress string, cosmosAddr sdk.AccAddress, txBldr authTypes.TxBuilder, ethereumChainID *big.Int, ethPrivateKey *ecdsa.PrivateKey) error {
 	println("relay cosmos work")
 	_, err := relayMultisigUpdates(cliCtx, cdc, bridgeContractAddr, client, ethPrivateKey)
 	if err != nil {
@@ -197,8 +198,7 @@ func relayFromCosmos(cliCtx context.CLIContext, cdc *codec.Codec, bridgeContract
 			nonces,
 			big.NewInt(int64(b.Batch.Nonce.Uint64())),
 		}
-		fmt.Printf("+++ data: %#v", mData)
-		_, err = callBridgeContract(bridgeContractAddr, client, ethPrivateKey, "submitBatch", mData)
+		_, err = callBridgeContract(bridgeContractAddr, client, ethPrivateKey, "submitBatch", mData...)
 		if err != nil {
 			return err
 		}
@@ -207,7 +207,7 @@ func relayFromCosmos(cliCtx context.CLIContext, cdc *codec.Codec, bridgeContract
 	return nil
 }
 
-func relayMultisigUpdates(cliCtx context.CLIContext, cdc *codec.Codec, bridgeContractAddr common.Address, client *ethclient.Client, ethPrivateKey *ecdsa.PrivateKey) (*types3.Transaction, error) {
+func relayMultisigUpdates(cliCtx context.CLIContext, cdc *codec.Codec, bridgeContractAddr common.Address, client *ethclient.Client, ethPrivateKey *ecdsa.PrivateKey) (*ethTypes.Transaction, error) {
 	println("relaying multisig set updates")
 
 	res, _, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/lastApprovedMultiSigUpdate", storeKey), nil)
@@ -244,10 +244,10 @@ func relayMultisigUpdates(cliCtx context.CLIContext, cdc *codec.Codec, bridgeCon
 		big.NewInt(int64(oldValset.Valset.Nonce.Uint64())),
 		v, r, s,
 	}
-	return callBridgeContract(bridgeContractAddr, client, ethPrivateKey, "updateValset", mData)
+	return callBridgeContract(bridgeContractAddr, client, ethPrivateKey, "updateValset", mData...)
 }
 
-func getLastObservedMultisigSet(cliCtx context.CLIContext, cdc *codec.Codec, res []byte) (keeper.MultiSigUpdateResponse, *types3.Transaction, error) {
+func getLastObservedMultisigSet(cliCtx context.CLIContext, cdc *codec.Codec, res []byte) (keeper.MultiSigUpdateResponse, *ethTypes.Transaction, error) {
 	res, _, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/lastObservedMultiSigUpdate", storeKey), nil)
 	if err != nil {
 		return keeper.MultiSigUpdateResponse{}, nil, sdkerrors.Wrap(err, "last observed")
@@ -261,9 +261,7 @@ func getLastObservedMultisigSet(cliCtx context.CLIContext, cdc *codec.Codec, res
 	return oldValset, nil, nil
 }
 
-func callBridgeContract(bridgeContractAddr common.Address, client *ethclient.Client, ethPrivateKey *ecdsa.PrivateKey, method string, mData []interface{}) (*types3.Transaction, error) {
-	println("calling eth contract: " + method)
-
+func callBridgeContract(bridgeContractAddr common.Address, client *ethclient.Client, ethPrivateKey *ecdsa.PrivateKey, method string, mData ...interface{}) (*ethTypes.Transaction, error) {
 	publicKey := ethPrivateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -296,9 +294,8 @@ func callBridgeContract(bridgeContractAddr common.Address, client *ethclient.Cli
 	instance := bind.NewBoundContract(bridgeContractAddr, *bridgeContractAbi, client, client, nil)
 
 	tx, err := instance.Transact(opts, method, mData...)
-	//ethResp, err := client.CallContract(stdcontext.Background(), msg, nil)
 	if err != nil {
-		return nil, err
+		return nil, sdkerrors.Wrap(err, "calling contract")
 	}
 	return tx, nil
 }
@@ -333,7 +330,7 @@ func asBigInts(s []uint64) []*big.Int {
 	return r
 }
 
-func relayFromETH(cliCtx context.CLIContext, bridgeContractAddr common.Address, client *ethclient.Client, bridgeContractAddress string, cosmosAddr sdk.AccAddress, txBldr types2.TxBuilder, ethereumChainID *big.Int) error {
+func relayFromETH(cliCtx context.CLIContext, bridgeContractAddr common.Address, client *ethclient.Client, bridgeContractAddress string, cosmosAddr sdk.AccAddress, txBldr authTypes.TxBuilder, ethereumChainID *big.Int) error {
 	subQuery := ethereum.FilterQuery{
 		Addresses: []common.Address{bridgeContractAddr /*erc20Addr */},
 		Topics:    [][]common.Hash{},
@@ -349,9 +346,9 @@ func relayFromETH(cliCtx context.CLIContext, bridgeContractAddr common.Address, 
 	}
 
 	var (
-		erc20LogTransferSigHash      = crypto.Keccak256Hash([]byte("Transfer(address,address,uint256)")).Hex()
-		erc20LogApprovalSigHash      = crypto.Keccak256Hash([]byte("Approval(address,address,uint256)")).Hex()
-		bridgeContractLogTransferOut = crypto.Keccak256Hash([]byte("TransferOutEvent(uint256,address,string,string,uint256)")).Hex()
+		erc20LogTransferSigHash          = crypto.Keccak256Hash([]byte("Transfer(address,address,uint256)")).Hex()
+		erc20LogApprovalSigHash          = crypto.Keccak256Hash([]byte("Approval(address,address,uint256)")).Hex()
+		bridgeContractLogTransferOut     = crypto.Keccak256Hash([]byte("TransferOutEvent(uint256,address,string,string,uint256)")).Hex()
 		bridgeContractLogBootstrap       = crypto.Keccak256Hash([]byte("BootstrapEvent(uint256,bytes32,uint256,address[],uint256[])")).Hex()
 		bridgeContractLogMultiSigUpdated = crypto.Keccak256Hash([]byte("ValsetUpdatedEvent(uint256,address[],uint256[])")).Hex()
 		bridgeContractLogWithdrawalBatch = crypto.Keccak256Hash([]byte("WithdrawalBatchEvent(uint256)")).Hex()
@@ -541,4 +538,49 @@ func loadABI(sourceFile string) (*abi.ABI, error) {
 	}
 	contractAbi, err := abi.JSON(bytes.NewReader(tmp["abi"]))
 	return &contractAbi, err
+}
+
+func CmdUnsafeETHBalance() *cobra.Command {
+	return &cobra.Command{
+		Use:   "eth-balance [erc20_contract_address] [eth_token_owner_address]",
+		Short: "Print balance for the address on the Ethereum chain",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			erc20ContractAddr := types.NewEthereumAddress(args[0])
+			if erc20ContractAddr.IsEmpty() {
+				return errors.New("invalid contract address")
+			}
+			tokenOwnerAddr := types.NewEthereumAddress(args[1])
+			if tokenOwnerAddr.IsEmpty() {
+				return errors.New("invalid address")
+			}
+
+			client, err := ethclient.Dial(EthProvider)
+			if err != nil {
+				panic(err)
+			}
+			defer client.Close()
+			fmt.Println("Started Ethereum connection with provider:", EthProvider)
+
+			var result *big.Int
+			if err := queryERC20Contract(ethCommon.Address(erc20ContractAddr), client, &result, "balanceOf", ethCommon.Address(tokenOwnerAddr)); err != nil {
+				return err
+			}
+			var symbol string
+			if err := queryERC20Contract(ethCommon.Address(erc20ContractAddr), client, &symbol, "symbol"); err != nil {
+				return err
+			}
+			fmt.Printf("Balance: %s %s\n", result.String(), symbol)
+			return nil
+		},
+	}
+}
+
+func queryERC20Contract(contractAddr common.Address, client *ethclient.Client, result interface{}, method string, mData ...interface{}) error {
+	contractAbi, err := loadABI("../solidity/artifacts/ERC20.json")
+	if err != nil {
+		return err
+	}
+	instance := bind.NewBoundContract(contractAddr, *contractAbi, client, client, nil)
+	return instance.Call(nil, &result, method, mData...)
 }

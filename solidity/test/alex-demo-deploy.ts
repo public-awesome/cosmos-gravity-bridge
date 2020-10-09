@@ -15,7 +15,7 @@ describe("Alex demo", function () {
 
         // This is the power distribution on the Cosmos hub as of 7/14/2020
         let powers = [100];
-        let validators = ["0xb462864E395d88d6bc7C5dd5F3F5eb4cc2599255"]
+        let validators = ["0xbd5D7Df0349FF9671E36Ec5545e849cbB93Ac7fA"]
 
         const powerThreshold = 66;
 

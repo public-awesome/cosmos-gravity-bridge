@@ -33,9 +33,23 @@ func GetQueryCmd(storeKey string, cdc *codec.Codec) *cobra.Command {
 		CmdGetAttestationRequest(storeKey, cdc),
 		QueryObserved(storeKey, cdc),
 		QueryApproved(storeKey, cdc),
+		GetUnsafeTestingQueries(cdc),
+	)...)
+	return peggyQueryCmd
+}
+func GetUnsafeTestingQueries(cdc *codec.Codec) *cobra.Command {
+	testingTxCmd := &cobra.Command{
+		Use:                        "unsafe_testing",
+		Short:                      "helpers for testing. not going into production",
+		DisableFlagParsing:         true,
+		SuggestionsMinimumDistance: 2,
+		RunE:                       client.ValidateCmd,
+	}
+	testingTxCmd.AddCommand(flags.PostCommands(
+		CmdUnsafeETHBalance(),
 	)...)
 
-	return peggyQueryCmd
+	return testingTxCmd
 }
 
 func QueryObserved(storeKey string, cdc *codec.Codec) *cobra.Command {

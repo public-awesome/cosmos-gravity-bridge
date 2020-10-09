@@ -143,8 +143,8 @@ func CmdUnsafeETHPrivKey() *cobra.Command {
 
 func CmdUnsafeETHAddr() *cobra.Command {
 	return &cobra.Command{
-		Use:   "eth-address",
-		Short: "Print address for an ECDSA eth key",
+		Use:   "eth-address [ethereum_key] ",
+		Short: "Print address for an ECDSA ethereum hex key",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			privKeyString := args[0][2:]

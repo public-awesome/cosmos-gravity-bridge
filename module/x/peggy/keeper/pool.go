@@ -34,7 +34,7 @@ func (k Keeper) AddToOutgoingPool(ctx sdk.Context, sender sdk.AccAddress, counte
 		return 0, err
 	}
 	if err := k.supplyKeeper.BurnCoins(ctx, types.ModuleName, totalInVouchers); err != nil {
-		panic(err)
+		return 0, sdkerrors.Wrap(err, "burn coins")
 	}
 
 	// persist TX in pool
