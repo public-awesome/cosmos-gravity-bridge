@@ -110,7 +110,7 @@ func TestHandleBridgeSignatureSubmission(t *testing.T) {
 				validSig, err := types.NewEthereumSignature(v.GetCheckpoint(), privKey)
 				require.NoError(t, err)
 				return MsgBridgeSignatureSubmission{
-					ClaimType:         types.ClaimTypeOrchestratorSignedMultiSigUpdate,
+					SignType:          types.SignTypeOrchestratorSignedMultiSigUpdate,
 					Nonce:             v.Nonce,
 					Orchestrator:      myOrchestratorAddr,
 					EthereumSignature: validSig,
@@ -139,7 +139,7 @@ func TestHandleBridgeSignatureSubmission(t *testing.T) {
 				validSig, err := types.NewEthereumSignature(checkpoint, privKey)
 				require.NoError(t, err)
 				return MsgBridgeSignatureSubmission{
-					ClaimType:         types.ClaimTypeOrchestratorSignedWithdrawBatch,
+					SignType:          types.SignTypeOrchestratorSignedWithdrawBatch,
 					Nonce:             b.Nonce,
 					Orchestrator:      myOrchestratorAddr,
 					EthereumSignature: validSig,
@@ -164,21 +164,9 @@ func TestHandleBridgeSignatureSubmission(t *testing.T) {
 			}
 			// then
 			require.NoError(t, err)
-
-			// and claim persisted
-			checkPoint, err := getCheckpoint(ctx, k, msg.ClaimType, msg.Nonce)
-			require.NoError(t, err)
-			claimFound := k.HasClaim(ctx, msg.ClaimType, msg.Nonce, myValAddr, types.SignedCheckpoint{
-				Checkpoint: checkPoint,
-			})
-			assert.True(t, claimFound)
 			// and approval persisted
-			sigFound := k.HasBridgeApprovalSignature(ctx, msg.ClaimType, msg.Nonce, myValAddr)
+			sigFound := k.HasBridgeApprovalSignature(ctx, msg.SignType, msg.Nonce, myValAddr)
 			assert.True(t, sigFound)
-
-			// and attestation persisted
-			a := k.GetAttestation(ctx, msg.ClaimType, msg.Nonce)
-			require.NotNil(t, a)
 		})
 	}
 }

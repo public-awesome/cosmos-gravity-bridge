@@ -12,6 +12,7 @@ const (
 	nonce                  = "nonce"
 	bech32ValidatorAddress = "bech32ValidatorAddress"
 	claimType              = "claimType"
+	signType               = "signType"
 )
 
 // RegisterRoutes - Central function to define routes that get registered by the main application
@@ -33,7 +34,7 @@ func RegisterRoutes(cliCtx context.CLIContext, r *mux.Router, storeName string) 
 	r.HandleFunc(fmt.Sprintf("/%s/last_observed_valset", storeName), lastObservedValsetHandler(cliCtx, storeName)).Methods("GET")
 	r.HandleFunc(fmt.Sprintf("/%s/last_approved_valset", storeName), lastApprovedValsetHandler(cliCtx, storeName)).Methods("GET")
 	r.HandleFunc(fmt.Sprintf("/%s/attestation/{%s}/{%s}", storeName, claimType, nonce), queryAttestation(cliCtx, storeName)).Methods("GET")
-	r.HandleFunc(fmt.Sprintf("/%s/sign_bridge_request/{%s}/{%s}", storeName, claimType, nonce), BridgeApprovalSignatureHandler(cliCtx)).Methods("POST")
+	r.HandleFunc(fmt.Sprintf("/%s/sign_bridge_request/{%s}/{%s}", storeName, signType, nonce), BridgeApprovalSignatureHandler(cliCtx)).Methods("POST")
 	r.HandleFunc(fmt.Sprintf("/%s/bootstrap", storeName), bootstrapConfirmHandler(cliCtx)).Methods("POST")
 
 }

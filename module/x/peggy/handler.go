@@ -90,14 +90,14 @@ func handleMsgValsetConfirm(ctx sdk.Context, keeper Keeper, msg MsgValsetConfirm
 	keeper.SetValsetConfirm(ctx, msg) // store legacy
 	return handleBridgeSignatureSubmission(ctx, keeper, MsgBridgeSignatureSubmission{
 		Nonce:             msg.Nonce,
-		ClaimType:         types.ClaimTypeOrchestratorSignedMultiSigUpdate,
+		SignType:          types.SignTypeOrchestratorSignedMultiSigUpdate,
 		Orchestrator:      msg.Validator,
 		EthereumSignature: sigBytes,
 	})
 }
 
 func handleBridgeSignatureSubmission(ctx sdk.Context, keeper Keeper, msg MsgBridgeSignatureSubmission) (*sdk.Result, error) {
-	checkpoint, err := getCheckpoint(ctx, keeper, msg.ClaimType, msg.Nonce)
+	checkpoint, err := getCheckpoint(ctx, keeper, msg.SignType, msg.Nonce)
 	if err != nil {
 		return nil, err
 	}
@@ -116,27 +116,22 @@ func handleBridgeSignatureSubmission(ctx sdk.Context, keeper Keeper, msg MsgBrid
 	}
 
 	// persist signature
-	if keeper.HasBridgeApprovalSignature(ctx, msg.ClaimType, msg.Nonce, validator) {
+	if keeper.HasBridgeApprovalSignature(ctx, msg.SignType, msg.Nonce, validator) {
 		return nil, sdkerrors.Wrap(types.ErrDuplicate, "signature")
 	}
-	keeper.SetBridgeApprovalSignature(ctx, msg.ClaimType, msg.Nonce, validator, msg.EthereumSignature)
-	details := types.SignedCheckpoint{Checkpoint: checkpoint}
-	att, err := keeper.AddClaim(ctx, msg.ClaimType, msg.Nonce, validator, details)
-	if err != nil {
-		return nil, err
-	}
+	key := keeper.SetBridgeApprovalSignature(ctx, msg.SignType, msg.Nonce, validator, msg.EthereumSignature)
 	return &sdk.Result{
-		Data: att.ID(),
+		Data: key,
 	}, nil
 }
 
-func getCheckpoint(ctx sdk.Context, keeper Keeper, claimType types.ClaimType, nonce types.UInt64Nonce) ([]byte, error) {
-	switch claimType {
-	case types.ClaimTypeOrchestratorSignedMultiSigUpdate:
+func getCheckpoint(ctx sdk.Context, keeper Keeper, signType types.SignType, nonce types.UInt64Nonce) ([]byte, error) {
+	switch signType {
+	case types.SignTypeOrchestratorSignedMultiSigUpdate:
 		if c := keeper.GetValsetRequest(ctx, nonce); c != nil {
 			return c.GetCheckpoint(), nil
 		}
-	case types.ClaimTypeOrchestratorSignedWithdrawBatch:
+	case types.SignTypeOrchestratorSignedWithdrawBatch:
 		if c := keeper.GetOutgoingTXBatch(ctx, nonce); c != nil {
 			nonce := keeper.GetLastAttestedNonce(ctx, types.ClaimTypeEthereumBridgeMultiSigUpdate)
 			if nonce == nil || nonce.IsEmpty() {
@@ -201,7 +196,7 @@ func handleMsgConfirmBatch(ctx sdk.Context, keeper Keeper, msg MsgConfirmBatch) 
 
 	return handleBridgeSignatureSubmission(ctx, keeper, MsgBridgeSignatureSubmission{
 		Nonce:             msg.Nonce,
-		ClaimType:         types.ClaimTypeOrchestratorSignedWithdrawBatch,
+		SignType:          types.SignTypeOrchestratorSignedWithdrawBatch,
 		Orchestrator:      msg.Orchestrator,
 		EthereumSignature: sigBytes,
 	})
