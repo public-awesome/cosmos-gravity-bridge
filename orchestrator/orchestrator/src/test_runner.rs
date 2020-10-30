@@ -31,9 +31,9 @@ use cosmos_peggy::{
 use deep_space::address::Address as CosmosAddress;
 use deep_space::coin::Coin;
 use deep_space::private_key::PrivateKey as CosmosPrivateKey;
-use ethereum_peggy::send_to_cosmos::send_to_cosmos;
 use ethereum_peggy::utils::get_erc20_symbol;
 use ethereum_peggy::utils::get_valset_nonce;
+use ethereum_peggy::{send_to_cosmos::send_to_cosmos, utils::get_tx_batch_nonce};
 use main_loop::orchestrator_main_loop;
 use peggy_utils::types::ERC20Token;
 use rand::Rng;
@@ -490,8 +490,7 @@ async fn test_batch(
     .unwrap();
     info!("Sent tokens to Ethereum with {:?}", res);
 
-    info!("Requesting transaction batch");
-    request_batch(
+    let res = request_batch(
         requester_cosmos_private_key,
         token_name,
         fee.clone(),
@@ -499,30 +498,31 @@ async fn test_batch(
     )
     .await
     .unwrap();
+    info!("Requesting transaction batch {:?}", res);
 
-    // let mut current_eth_batch_nonce = get_tx_batch_nonce(peggy_address, miner_address, &web30)
-    //     .await
-    //     .expect("Failed to get current eth valset");
-    // let starting_batch_nonce = current_eth_batch_nonce.clone();
+    let mut current_eth_batch_nonce = get_tx_batch_nonce(peggy_address, *MINER_ADDRESS, &web30)
+        .await
+        .expect("Failed to get current eth valset");
+    let starting_batch_nonce = current_eth_batch_nonce.clone();
 
-    // let start = Instant::now();
-    // while starting_batch_nonce == current_eth_batch_nonce {
-    //     info!(
-    //         "Batch is not yet submitted {}>, waiting",
-    //         starting_batch_nonce
-    //     );
-    //     current_eth_batch_nonce = get_tx_batch_nonce(peggy_address, miner_address, &web30)
-    //         .await
-    //         .expect("Failed to get current eth tx batch nonce");
-    //     delay_for(Duration::from_secs(4)).await;
-    //     if Instant::now() - start > TOTAL_TIMEOUT {
-    //         panic!("Failed to submit transaction batch set");
-    //     }
-    // }
-    // info!(
-    //     "Successfully updated txbatch nonce to {}",
-    //     current_eth_batch_nonce
-    // );
+    let start = Instant::now();
+    while starting_batch_nonce == current_eth_batch_nonce {
+        info!(
+            "Batch is not yet submitted {}>, waiting",
+            starting_batch_nonce
+        );
+        current_eth_batch_nonce = get_tx_batch_nonce(peggy_address, *MINER_ADDRESS, &web30)
+            .await
+            .expect("Failed to get current eth tx batch nonce");
+        delay_for(Duration::from_secs(4)).await;
+        if Instant::now() - start > TOTAL_TIMEOUT {
+            panic!("Failed to submit transaction batch");
+        }
+    }
+    info!(
+        "Successfully updated txbatch nonce to {}",
+        current_eth_batch_nonce
+    );
 }
 
 // this function submits a EthereumBridgeDepositClaim to the module with a given nonce. This can be set to be a nonce that has

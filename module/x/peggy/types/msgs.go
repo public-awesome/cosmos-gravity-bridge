@@ -222,8 +222,6 @@ func (msg MsgSendToEth) ValidateBasic() error {
 	if !msg.BridgeFee.IsValid() {
 		return sdkerrors.Wrap(sdkerrors.ErrInvalidCoins, "fee")
 	}
-	// TODO validate eth address
-	// TODO for demo get single allowed demon from the store
 	// TODO validate fee is sufficient, fixed fee to start
 	return nil
 }
@@ -263,10 +261,12 @@ func (msg MsgRequestBatch) Route() string { return RouterKey }
 // Type should return the action
 func (msg MsgRequestBatch) Type() string { return "request_batch" }
 
+// ValidateBasic MsgRequestBatch can not be invalid in any way other than signature errors
+// that are already checked by CosmosSDK, now the module may choose not to
+// create a batch if the batch is requested at a point in time where it doesn't
+// make sense to produce a batch. But that would not make the MsgRequestBatch itself
+// invalid
 func (msg MsgRequestBatch) ValidateBasic() error {
-	// TODO ensure that Demon matches hardcoded allowed value
-	// TODO later make sure that Demon matches a list of tokens already
-	// in the bridge to send
 	return nil
 }
 
