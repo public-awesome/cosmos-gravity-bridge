@@ -9,21 +9,23 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/store"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/auth"
+	auth "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	"github.com/cosmos/cosmos-sdk/x/bank"
-	"github.com/cosmos/cosmos-sdk/x/distribution"
-	"github.com/cosmos/cosmos-sdk/x/gov"
+	bank "github.com/cosmos/cosmos-sdk/x/bank/keeper"
+	distribution "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
+	gov "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	"github.com/cosmos/cosmos-sdk/x/params"
-	"github.com/cosmos/cosmos-sdk/x/staking"
+	params "github.com/cosmos/cosmos-sdk/x/params/keeper"
+	staking "github.com/cosmos/cosmos-sdk/x/staking"
+	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/stretchr/testify/require"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/log"
 	dbm "github.com/tendermint/tm-db"
 )
 
-var TestingStakeParams = staking.Params{
+var TestingStakeParams = stakingtypes.Params{
 	UnbondingTime:     100,
 	MaxValidators:     10,
 	MaxEntries:        10,
@@ -34,10 +36,9 @@ var TestingStakeParams = staking.Params{
 type TestKeepers struct {
 	BankKeeper    bank.BaseKeeper
 	AccountKeeper auth.AccountKeeper
-	StakingKeeper staking.Keeper
+	StakingKeeper stakingkeeper.Keeper
 	DistKeeper    distribution.Keeper
 	GovKeeper     gov.Keeper
-	BankKeeper    bank.Keeper
 }
 
 func CreateTestEnv(t *testing.T) (Keeper, sdk.Context, TestKeepers) {
@@ -175,7 +176,8 @@ func CreateTestEnv(t *testing.T) (Keeper, sdk.Context, TestKeepers) {
 	return k, ctx, keepers
 }
 
-func MakeTestCodec() *codec.Codec {
+// TODO: migrate to use proto not amino
+func MakeTestCodec() codec.BinaryMarshaler {
 	var cdc = codec.New()
 	auth.AppModuleBasic{}.RegisterCodec(cdc)
 	bank.AppModuleBasic{}.RegisterCodec(cdc)
@@ -204,7 +206,7 @@ func MintVouchersFromAir(t *testing.T, ctx sdk.Context, k Keeper, dest sdk.AccAd
 var _ types.StakingKeeper = &StakingKeeperMock{}
 
 type StakingKeeperMock struct {
-	BondedValidators []staking.Validator
+	BondedValidators []stakingtypes.Validator
 	ValidatorPower   map[string]int64
 }
 
@@ -243,7 +245,7 @@ func NewStakingKeeperWeightedMock(t ...MockStakingValidatorData) *StakingKeeperM
 	return r
 }
 
-func (s *StakingKeeperMock) GetBondedValidatorsByPower(ctx sdk.Context) []staking.Validator {
+func (s *StakingKeeperMock) GetBondedValidatorsByPower(ctx sdk.Context) []stakingtypes.Validator {
 	return s.BondedValidators
 }
 
@@ -269,7 +271,7 @@ func (s AlwaysPanicStakingMock) GetLastTotalPower(ctx sdk.Context) (power sdk.In
 	panic("unexpected call")
 }
 
-func (s AlwaysPanicStakingMock) GetBondedValidatorsByPower(ctx sdk.Context) []staking.Validator {
+func (s AlwaysPanicStakingMock) GetBondedValidatorsByPower(ctx sdk.Context) []stakingtypes.Validator {
 	panic("unexpected call")
 }
 

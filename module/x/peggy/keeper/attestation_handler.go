@@ -8,32 +8,39 @@ import (
 
 // AttestationHandler processes `observed` Attestations
 type AttestationHandler struct {
-	keeper       Keeper
-	supplyKeeper types.SupplyKeeper
+	keeper     Keeper
+	bankKeeper types.BankKeeper
 }
 
 // Handle is the entry point for Attestation processing.
 func (a AttestationHandler) Handle(ctx sdk.Context, att types.Attestation) error {
+	details, err := types.UnpackAttestationDetails(att.Details)
+	if err != nil {
+		return err
+	}
 	switch att.ClaimType {
-	case types.ClaimTypeEthereumBridgeDeposit:
-		deposit, ok := att.Details.(types.BridgeDeposit)
+	case types.CLAIM_TYPE_ETHEREUM_BRIDGE_DEPOSIT:
+		deposit, ok := details.(*types.BridgeDeposit)
 		if !ok {
 			return sdkerrors.Wrapf(types.ErrInvalid, "unexpected type: %T", att.Details)
 		}
-		if !a.keeper.HasCounterpartDenominator(ctx, types.NewVoucherDenom(deposit.ERC20Token.TokenContractAddress, deposit.ERC20Token.Symbol)) {
-			a.keeper.StoreCounterpartDenominator(ctx, deposit.ERC20Token.TokenContractAddress, deposit.ERC20Token.Symbol)
+		if !a.keeper.HasCounterpartDenominator(ctx, types.NewVoucherDenom(deposit.Erc_20Token.TokenContractAddress, deposit.Erc_20Token.Symbol)) {
+			a.keeper.StoreCounterpartDenominator(ctx, deposit.Erc_20Token.TokenContractAddress, deposit.Erc_20Token.Symbol)
 		}
-		coin := deposit.ERC20Token.AsVoucherCoin()
+		coin := deposit.Erc_20Token.AsVoucherCoin()
 		vouchers := sdk.Coins{coin}
-		err := a.supplyKeeper.MintCoins(ctx, types.ModuleName, vouchers)
-		if err != nil {
+
+		if err = a.bankKeeper.MintCoins(ctx, types.ModuleName, vouchers); err != nil {
 			return sdkerrors.Wrapf(err, "mint vouchers coins: %s", vouchers)
 		}
-		err = a.supplyKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, deposit.CosmosReceiver, vouchers)
+		recv, err := sdk.AccAddressFromBech32(deposit.CosmosReceiver)
 		if err != nil {
+			return sdkerrors.Wrap(err, "address")
+		}
+		if err = a.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, recv, vouchers); err != nil {
 			return sdkerrors.Wrap(err, "transfer vouchers")
 		}
-	case types.ClaimTypeEthereumBridgeWithdrawalBatch:
+	case types.CLAIM_TYPE_ETHEREUM_BRIDGE_WITHDRAWAL_BATCH:
 		b := a.keeper.GetOutgoingTXBatch(ctx, att.EventNonce) // TODO: this is not the correct nonce. We need the batch nonce.
 		if b == nil {
 			return sdkerrors.Wrap(types.ErrUnknown, "nonce")
@@ -41,10 +48,10 @@ func (a AttestationHandler) Handle(ctx sdk.Context, att types.Attestation) error
 		if err := b.Observed(); err != nil {
 			return err
 		}
-		a.keeper.storeBatch(ctx, *b)
+		a.keeper.storeBatch(ctx, b)
 		// cleanup outgoing TX pool
 		for i := range b.Elements {
-			a.keeper.removePoolEntry(ctx, b.Elements[i].ID)
+			a.keeper.removePoolEntry(ctx, b.Elements[i].Id)
 		}
 		// TODO: implement logic to free transactions from all earlier batches as well.
 		return nil

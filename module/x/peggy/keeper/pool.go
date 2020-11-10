@@ -15,7 +15,7 @@ import (
 // - burns the voucher for transfer amount and fees
 // - persists an OutgoingTx
 // - adds the TX to the `available` TX pool via a second index
-func (k Keeper) AddToOutgoingPool(ctx sdk.Context, sender sdk.AccAddress, counterpartReceiver types.EthereumAddress, amount sdk.Coin, fee sdk.Coin) (uint64, error) {
+func (k Keeper) AddToOutgoingPool(ctx sdk.Context, sender sdk.AccAddress, counterpartReceiver []byte, amount sdk.Coin, fee sdk.Coin) (uint64, error) {
 	totalAmount := amount.Add(fee)
 	totalInVouchers := sdk.Coins{totalAmount}
 
@@ -29,11 +29,11 @@ func (k Keeper) AddToOutgoingPool(ctx sdk.Context, sender sdk.AccAddress, counte
 	}
 
 	// burn vouchers
-	err = k.supplyKeeper.SendCoinsFromAccountToModule(ctx, sender, types.ModuleName, totalInVouchers)
+	err = k.bankKeeper.SendCoinsFromAccountToModule(ctx, sender, types.ModuleName, totalInVouchers)
 	if err != nil {
 		return 0, err
 	}
-	if err := k.supplyKeeper.BurnCoins(ctx, types.ModuleName, totalInVouchers); err != nil {
+	if err := k.bankKeeper.BurnCoins(ctx, types.ModuleName, totalInVouchers); err != nil {
 		panic(err)
 	}
 
@@ -41,10 +41,10 @@ func (k Keeper) AddToOutgoingPool(ctx sdk.Context, sender sdk.AccAddress, counte
 	nextID := k.autoIncrementID(ctx, types.KeyLastTXPoolID)
 	outgoing := types.OutgoingTx{
 		//TokenContractAddress: , // TODO: do we need to store this?
-		Sender:      sender,
-		DestAddress: counterpartReceiver,
-		Amount:      amount,
-		BridgeFee:   fee,
+		Sender:    sender.String(),
+		DestAddr:  counterpartReceiver,
+		Amount:    amount,
+		BridgeFee: fee,
 	}
 	err = k.setPoolEntry(ctx, nextID, outgoing)
 	if err != nil {
@@ -159,7 +159,7 @@ func (k Keeper) GetCounterpartDenominator(ctx sdk.Context, voucherDenom types.Vo
 }
 
 // StoreCounterpartDenominator persists the bridged token details. Overwrites an existing entry without error
-func (k Keeper) StoreCounterpartDenominator(ctx sdk.Context, tokenContractAddress types.EthereumAddress, symbol string) types.BridgedDenominator {
+func (k Keeper) StoreCounterpartDenominator(ctx sdk.Context, tokenContractAddress []byte, symbol string) types.BridgedDenominator {
 	store := ctx.KVStore(k.storeKey)
 	voucherDenominator := types.NewVoucherDenom(tokenContractAddress, symbol)
 	bridgedDenominator := types.NewBridgedDenominator(tokenContractAddress, symbol)

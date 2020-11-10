@@ -16,7 +16,7 @@ func NewBridgedDenominator(tokenContractAddress []byte, erc20Symbol string) Brid
 }
 
 // ToERC20Token converts the given voucher amount to the matching ERC20Token object of same type
-func (b BridgedDenominator) ToERC20Token(s sdk.Coin) ERC20Token {
+func (b BridgedDenominator) ToERC20Token(s sdk.Coin) *ERC20Token {
 	if b.CosmosVoucherDenom != s.Denom {
 		panic("invalid denom")
 	}
@@ -24,8 +24,8 @@ func (b BridgedDenominator) ToERC20Token(s sdk.Coin) ERC20Token {
 }
 
 // ToUint64ERC20Token creates a erc20 token instance for given amount
-func (b BridgedDenominator) ToUint64ERC20Token(amount uint64) ERC20Token {
-	return NewERC20Token(amount, b.Symbol, b.TokenContractAddress)
+func (b BridgedDenominator) ToUint64ERC20Token(amount uint64) *ERC20Token {
+	return NewERC20Token(sdk.NewIntFromUint64(amount), b.Symbol, b.TokenContractAddress)
 }
 
 // ToVoucherCoin creates a new Peggy voucher coin instance with given amount

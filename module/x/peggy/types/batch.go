@@ -112,14 +112,13 @@ func (b OutgoingTxBatch) GetCheckpoint() ([]byte, error) {
 	copy(batchMethodName[:], methodNameBytes[:])
 
 	// Run through the elements of the batch and serialize them
-	// TODO: fix this to work with BigInts again
-	txAmounts := make([]uint64, len(b.Elements))
+	txAmounts := make([]*big.Int, len(b.Elements))
 	txDestinations := make([][]byte, len(b.Elements))
-	txFees := make([]uint64, len(b.Elements))
+	txFees := make([]*big.Int, len(b.Elements))
 	for i, tx := range b.Elements {
-		txAmounts[i] = tx.Amount.Amount
+		txAmounts[i] = tx.Amount.Amount.BigInt()
 		txDestinations[i] = tx.DestAddress
-		txFees[i] = tx.BridgeFee.Amount
+		txFees[i] = tx.BridgeFee.Amount.BigInt()
 	}
 
 	batchNonce := big.NewInt(int64(b.Nonce))

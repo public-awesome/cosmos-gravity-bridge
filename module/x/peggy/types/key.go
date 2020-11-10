@@ -50,22 +50,22 @@ func GetEthAddressKey(validator sdk.ValAddress) []byte {
 	return append(EthAddressKey, []byte(validator)...)
 }
 
-func GetValsetRequestKey(nonce UInt64Nonce) []byte {
-	return append(ValsetRequestKey, nonce.Bytes()...)
+func GetValsetRequestKey(nonce uint64) []byte {
+	return append(ValsetRequestKey, sdk.Uint64ToBigEndian(nonce)...)
 }
 
 // deprecated
-func GetValsetConfirmKey(nonce UInt64Nonce, validator sdk.AccAddress) []byte {
-	return append(ValsetConfirmKey, append(nonce.Bytes(), []byte(validator)...)...)
+func GetValsetConfirmKey(nonce uint64, validator sdk.AccAddress) []byte {
+	return append(ValsetConfirmKey, append(sdk.Uint64ToBigEndian(nonce), []byte(validator)...)...)
 }
 
-func GetClaimKey(claimType ClaimType, nonce UInt64Nonce, validator sdk.ValAddress, details AttestationDetails) []byte {
+func GetClaimKey(claimType ClaimType, nonce uint64, validator sdk.ValAddress, details AttestationDetails) []byte {
 	var detailsHash []byte
 	if details != nil {
 		detailsHash = details.Hash()
 	}
 	claimTypeLen := len(claimType.Bytes())
-	nonceBz := nonce.Bytes()
+	nonceBz := sdk.Uint64ToBigEndian(nonce)
 	key := make([]byte, len(OracleClaimKey)+claimTypeLen+sdk.AddrLen+len(nonceBz)+len(detailsHash))
 	copy(key[0:], OracleClaimKey)
 	copy(key[len(OracleClaimKey):], claimType.Bytes())
@@ -79,37 +79,37 @@ func GetLastNonceByClaimTypeSecondIndexKeyPrefix(claimType ClaimType) []byte {
 	return append(SecondIndexNonceByClaimKey, claimType.Bytes()...)
 }
 
-func GetLastNonceByClaimTypeSecondIndexKey(claimType ClaimType, nonce UInt64Nonce) []byte {
-	return append(GetLastNonceByClaimTypeSecondIndexKeyPrefix(claimType), nonce.Bytes()...)
+func GetLastNonceByClaimTypeSecondIndexKey(claimType ClaimType, nonce uint64) []byte {
+	return append(GetLastNonceByClaimTypeSecondIndexKeyPrefix(claimType), sdk.Uint64ToBigEndian(nonce)...)
 }
 
-func GetAttestationKey(eventNonce UInt64Nonce, details AttestationDetails) []byte {
-	return append(eventNonce.Bytes(), details.Hash()...)
+func GetAttestationKey(eventNonce uint64, details AttestationDetails) []byte {
+	return append(sdk.Uint64ToBigEndian(eventNonce), details.Hash()...)
 }
 
 func GetOutgoingTxPoolKey(id uint64) []byte {
 	return append(OutgoingTXPoolKey, sdk.Uint64ToBigEndian(id)...)
 }
 
-func GetOutgoingTxBatchKey(nonce UInt64Nonce) []byte {
-	return append(OutgoingTXBatchKey, nonce.Bytes()...)
+func GetOutgoingTxBatchKey(nonce uint64) []byte {
+	return append(OutgoingTXBatchKey, sdk.Uint64ToBigEndian(nonce)...)
 }
 
 // deprecated
-func GetOutgoingTXBatchConfirmKey(nonce UInt64Nonce, validator sdk.ValAddress) []byte {
-	return append(OutgoingTXBatchConfirmKey, append(nonce.Bytes(), validator.Bytes()...)...)
+func GetOutgoingTXBatchConfirmKey(nonce uint64, validator sdk.ValAddress) []byte {
+	return append(OutgoingTXBatchConfirmKey, append(sdk.Uint64ToBigEndian(nonce), validator.Bytes()...)...)
 }
 
 func GetBridgeApprovalSignatureKeyPrefix(s SignType) []byte {
 	return append(BridgeApprovalSignatureKey, s.Bytes()...)
 }
-func GetBridgeApprovalSignatureKey(singType SignType, nonce UInt64Nonce, validator sdk.ValAddress) []byte {
+func GetBridgeApprovalSignatureKey(singType SignType, nonce uint64, validator sdk.ValAddress) []byte {
 	prefix := GetBridgeApprovalSignatureKeyPrefix(singType)
 	prefixLen := len(prefix)
 
 	r := make([]byte, prefixLen+UInt64NonceByteLen+len(validator))
 	copy(r, prefix)
-	copy(r[prefixLen:], nonce.Bytes())
+	copy(r[prefixLen:], sdk.Uint64ToBigEndian(nonce))
 	copy(r[prefixLen+UInt64NonceByteLen:], validator)
 	return r
 }
@@ -118,13 +118,13 @@ func GetBridgeObservedSignatureKeyPrefix(c ClaimType) []byte {
 	return append(BridgeApprovalSignatureKey, c.Bytes()...)
 }
 
-func GetBridgeObservedSignatureKey(claimType ClaimType, nonce UInt64Nonce, validator sdk.ValAddress) []byte {
+func GetBridgeObservedSignatureKey(claimType ClaimType, nonce uint64, validator sdk.ValAddress) []byte {
 	prefix := GetBridgeObservedSignatureKeyPrefix(claimType)
 	prefixLen := len(prefix)
 
 	r := make([]byte, prefixLen+UInt64NonceByteLen+len(validator))
 	copy(r, prefix)
-	copy(r[prefixLen:], nonce.Bytes())
+	copy(r[prefixLen:], sdk.Uint64ToBigEndian(nonce))
 	copy(r[prefixLen+UInt64NonceByteLen:], validator)
 	return r
 }

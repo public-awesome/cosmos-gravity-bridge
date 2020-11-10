@@ -70,18 +70,18 @@ func (e EthereumAddress) LessThan(o EthereumAddress) bool {
 	return bytes.Compare(e[:], o[:]) == -1
 }
 
-func NewERC20Token(amount uint64, symbol string, tokenContractAddress []byte) ERC20Token {
-	return ERC20Token{Amount: amount, Symbol: symbol, TokenContractAddress: tokenContractAddress}
+func NewERC20Token(amount sdk.Int, symbol string, tokenContractAddress []byte) *ERC20Token {
+	return &ERC20Token{Amount: amount, Symbol: symbol, TokenContractAddress: tokenContractAddress}
 	// return ERC20Token{Amount: sdk.NewInt(int64(amount)), Symbol: symbol, TokenContractAddress: tokenContractAddress}
 }
 
 // AsVoucherCoin converts the data into a cosmos coin with peggy voucher denom.
-func (e ERC20Token) AsVoucherCoin() sdk.Coin {
+func (e *ERC20Token) AsVoucherCoin() sdk.Coin {
 	// return sdk.NewInt64Coin(NewVoucherDenom(e.TokenContractAddress, e.Symbol).String(), e.Amount.Int64())
-	return sdk.NewInt64Coin(NewVoucherDenom(e.TokenContractAddress, e.Symbol).String(), int64(e.Amount))
+	return sdk.NewCoin(NewVoucherDenom(e.TokenContractAddress, e.Symbol).String(), e.Amount)
 }
 
-func (t ERC20Token) Add(o ERC20Token) ERC20Token {
+func (t *ERC20Token) Add(o *ERC20Token) *ERC20Token {
 	if t.Symbol != o.Symbol {
 		panic("invalid symbol")
 	}
@@ -90,7 +90,7 @@ func (t ERC20Token) Add(o ERC20Token) ERC20Token {
 	}
 	// TODO: this needs to be fixed to prevent overflows !!!
 	// sum := t.Amount.Add(o.Amount)
-	sum := o.Amount + t.Amount
+	sum := o.Amount.Add(t.Amount)
 	// if !sum.IsUint64() {
 	// 	panic("invalid amount")
 	// }

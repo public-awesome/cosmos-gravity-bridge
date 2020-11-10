@@ -8,6 +8,7 @@ import (
 
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
@@ -15,14 +16,18 @@ func (b BridgeValidator) ValidateBasic() error {
 	if b.Power == 0 {
 		return sdkerrors.Wrap(ErrEmpty, "power")
 	}
-	if b.EthereumAddress == []byte{} {
+	if b.EthereumAddress == nil || len(b.EthereumAddress) != 20 {
 		return sdkerrors.Wrap(ErrEmpty, "address")
 	}
 	return nil
 }
 
+func (b BridgeValidator) EthAddr() gethCommon.Address {
+	return gethCommon.BytesToAddress(b.EthereumAddress)
+}
+
 func (b BridgeValidator) isValid() bool {
-	return !(b.EthereumAddress == []byte{}) && b.Power != 0
+	return !(b.EthereumAddress == nil) && b.Power != 0
 }
 
 // BridgeValidators is the sorted set of validator data for Ethereum bridge MultiSig set
@@ -32,16 +37,16 @@ func (b BridgeValidators) Sort() {
 	sort.Slice(b, func(i, j int) bool {
 		if b[i].Power == b[j].Power {
 			// Secondary sort on eth address in case powers are equal
-			return b[i].EthereumAddress.LessThan(b[j].EthereumAddress)
+			return EthereumAddress(b[i].EthAddr()).LessThan(EthereumAddress(b[j].EthAddr()))
 		}
 		return b[i].Power > b[j].Power
 	})
 }
 
 func (b BridgeValidators) HasDuplicates() bool {
-	m := make(map[EthereumAddress]struct{}, len(b))
+	m := make(map[gethCommon.Address]struct{}, len(b))
 	for i := range b {
-		m[b[i].EthereumAddress] = struct{}{}
+		m[b[i].EthAddr()] = struct{}{}
 	}
 	return len(m) != len(b)
 }
@@ -70,9 +75,9 @@ func (b BridgeValidators) ValidateBasic() error {
 	return nil
 }
 
-func NewValset(nonce UInt64Nonce, members BridgeValidators) Valset {
+func NewValset(nonce uint64, members BridgeValidators) *Valset {
 	members.Sort()
-	return Valset{Nonce: nonce, Members: members}
+	return &Valset{Nonce: nonce, Members: members}
 }
 
 func (v Valset) GetCheckpoint() []byte {

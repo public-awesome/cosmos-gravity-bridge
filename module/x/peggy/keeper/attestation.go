@@ -15,7 +15,7 @@ import (
 // - Checks if the attestation has enough votes to be considered "Observed", then attempts to apply it to the
 //   consensus state (e.g. minting tokens for a deposit event)
 // - If so, marks it "Observed" and emits an event
-func (k Keeper) AddClaim(ctx sdk.Context, claimType types.ClaimType, eventNonce types.UInt64Nonce, validator sdk.ValAddress, details types.AttestationDetails) (*types.Attestation, error) {
+func (k Keeper) AddClaim(ctx sdk.Context, claimType types.ClaimType, eventNonce uint64, validator sdk.ValAddress, details types.AttestationDetails) (*types.Attestation, error) {
 	if err := k.storeClaim(ctx, claimType, eventNonce, validator, details); err != nil {
 		return nil, sdkerrors.Wrap(err, "claim")
 	}
@@ -30,7 +30,7 @@ func (k Keeper) AddClaim(ctx sdk.Context, claimType types.ClaimType, eventNonce 
 }
 
 // storeClaim persists a claim. Fails when a claim submitted by an Eth signer does not increment the event nonce by exactly 1.
-func (k Keeper) storeClaim(ctx sdk.Context, claimType types.ClaimType, eventNonce types.UInt64Nonce, validator sdk.ValAddress, details types.AttestationDetails) error {
+func (k Keeper) storeClaim(ctx sdk.Context, claimType types.ClaimType, eventNonce uint64, validator sdk.ValAddress, details types.AttestationDetails) error {
 	// Check that the nonce of this event is exactly one higher than the last nonce stored by this validator.
 	// We check the event nonce in processAttestation as well, but checking it here gives individual eth signers a chance to retry.
 	lastEventNonce := k.GetLastEventNonceByValidator(ctx, validator)
@@ -53,24 +53,25 @@ func (k Keeper) storeClaim(ctx sdk.Context, claimType types.ClaimType, eventNonc
 func (k Keeper) voteForAttestation(
 	ctx sdk.Context,
 	claimType types.ClaimType,
-	eventNonce types.UInt64Nonce,
+	eventNonce uint64,
 	details types.AttestationDetails,
 	validator sdk.ValAddress,
 ) *types.Attestation {
 	// Tries to get an attestation with the same eventNonce and details as the claim that was submitted.
 	att := k.GetAttestation(ctx, eventNonce, details)
 	// If it does not exist, create a new one.
+	adany, _ := types.PackAttestationDetails(details)
 	if att == nil {
 		att = &types.Attestation{
 			ClaimType:  claimType,
 			EventNonce: eventNonce,
 			Observed:   false,
-			Details:    details,
+			Details:    adany,
 		}
 	}
 
 	// Add the validator's vote to this attestation
-	att.Votes = append(att.Votes, validator)
+	att.Votes = append(att.Votes, validator.String())
 
 	return att
 }
@@ -89,7 +90,8 @@ func (k Keeper) tryAttestation(ctx sdk.Context, att *types.Attestation) {
 		attestationPower := sdk.NewInt(0)
 		for _, validator := range att.Votes {
 			// Get the power of the current validator
-			validatorPower := k.StakingKeeper.GetLastValidatorPower(ctx, validator)
+			valAddr, _ := sdk.ValAddressFromBech32(validator)
+			validatorPower := k.StakingKeeper.GetLastValidatorPower(ctx, valAddr)
 			// Add it to the attestation power's sum
 			attestationPower = attestationPower.Add(sdk.NewInt(validatorPower))
 			// If the power of all the validators that have voted on the attestation is higher or equal to the threshold,
@@ -107,14 +109,18 @@ func (k Keeper) tryAttestation(ctx sdk.Context, att *types.Attestation) {
 // emitObservedEvent emits an event with information about an attestation that has been applied to
 // consensus state.
 func (k Keeper) emitObservedEvent(ctx sdk.Context, att *types.Attestation) {
+	ad, err := types.UnpackAttestationDetails(att.Details)
+	if err != nil {
+		panic(err)
+	}
 	observationEvent := sdk.NewEvent(
 		types.EventTypeObservation,
 		sdk.NewAttribute(sdk.AttributeKeyModule, types.ModuleName),
 		sdk.NewAttribute(types.AttributeKeyAttestationType, string(att.ClaimType)),
 		sdk.NewAttribute(types.AttributeKeyContract, k.GetBridgeContractAddress(ctx).String()),
 		sdk.NewAttribute(types.AttributeKeyBridgeChainID, strconv.Itoa(int(k.GetBridgeChainID(ctx)))),
-		sdk.NewAttribute(types.AttributeKeyAttestationID, string(types.GetAttestationKey(att.EventNonce, att.Details))), // todo: serialize with hex/ base64 ?
-		sdk.NewAttribute(types.AttributeKeyNonce, att.EventNonce.String()),
+		sdk.NewAttribute(types.AttributeKeyAttestationID, string(types.GetAttestationKey(att.EventNonce, ad))), // todo: serialize with hex/ base64 ?
+		sdk.NewAttribute(types.AttributeKeyNonce, string(att.EventNonce)),
 		// TODO: do we want to emit more information?
 	)
 	ctx.EventManager().EmitEvent(observationEvent)
@@ -142,11 +148,15 @@ func (k Keeper) processAttestation(ctx sdk.Context, att *types.Attestation) {
 		// If the attestation fails, something has gone wrong and we can't recover it. Log and move on
 		// The attestation will still be marked "Observed", and validators can still be slashed for not
 		// having voted for it.
+		ad, err := types.UnpackAttestationDetails(att.Details)
+		if err != nil {
+			panic(err)
+		}
 		k.logger(ctx).Error("attestation failed",
 			"cause", err.Error(),
 			"claim type", att.ClaimType,
-			"id", types.GetAttestationKey(att.EventNonce, att.Details),
-			"nonce", att.EventNonce.String(),
+			"id", types.GetAttestationKey(att.EventNonce, ad),
+			"nonce", string(att.EventNonce),
 		)
 	} else {
 		commit() // persist transient storage
@@ -155,11 +165,15 @@ func (k Keeper) processAttestation(ctx sdk.Context, att *types.Attestation) {
 
 func (k Keeper) SetAttestation(ctx sdk.Context, att *types.Attestation) {
 	store := ctx.KVStore(k.storeKey)
-	aKey := types.GetAttestationKey(att.EventNonce, att.Details)
+	ad, err := types.UnpackAttestationDetails(att.Details)
+	if err != nil {
+		panic(err)
+	}
+	aKey := types.GetAttestationKey(att.EventNonce, ad)
 	store.Set(aKey, k.cdc.MustMarshalBinaryBare(att))
 }
 
-func (k Keeper) GetAttestation(ctx sdk.Context, eventNonce types.UInt64Nonce, details types.AttestationDetails) *types.Attestation {
+func (k Keeper) GetAttestation(ctx sdk.Context, eventNonce uint64, details types.AttestationDetails) *types.Attestation {
 	store := ctx.KVStore(k.storeKey)
 	aKey := types.GetAttestationKey(eventNonce, details)
 	bz := store.Get(aKey)
@@ -171,37 +185,39 @@ func (k Keeper) GetAttestation(ctx sdk.Context, eventNonce types.UInt64Nonce, de
 	return &att
 }
 
-func (k Keeper) GetLastObservedEventNonce(ctx sdk.Context) types.UInt64Nonce {
+func (k Keeper) GetLastObservedEventNonce(ctx sdk.Context) uint64 {
 	store := ctx.KVStore(k.storeKey)
 	bytes := store.Get(types.GetLastObservedEventNonceKey())
 
 	if len(bytes) == 0 {
-		return types.NewUInt64Nonce(0)
+		return 0
 	}
-	return types.UInt64NonceFromBytes(bytes)
+
+	return sdk.BigEndianToUint64(bytes)
 }
 
-func (k Keeper) setLastObservedEventNonce(ctx sdk.Context, nonce types.UInt64Nonce) {
+func (k Keeper) setLastObservedEventNonce(ctx sdk.Context, nonce uint64) {
 	store := ctx.KVStore(k.storeKey)
-	store.Set(types.GetLastObservedEventNonceKey(), nonce.Bytes())
+	store.Set(types.GetLastObservedEventNonceKey(), sdk.Uint64ToBigEndian(nonce))
 }
 
-func (k Keeper) GetLastEventNonceByValidator(ctx sdk.Context, validator sdk.ValAddress) types.UInt64Nonce {
+func (k Keeper) GetLastEventNonceByValidator(ctx sdk.Context, validator sdk.ValAddress) uint64 {
 	store := ctx.KVStore(k.storeKey)
 	bytes := store.Get(types.GetLastEventNonceByValidatorKey(validator))
 
 	if len(bytes) == 0 {
-		return types.NewUInt64Nonce(0)
+		return 0
 	}
-	return types.UInt64NonceFromBytes(bytes)
+	return sdk.BigEndianToUint64(bytes)
 }
 
-func (k Keeper) setLastEventNonceByValidator(ctx sdk.Context, validator sdk.ValAddress, nonce types.UInt64Nonce) {
+func (k Keeper) setLastEventNonceByValidator(ctx sdk.Context, validator sdk.ValAddress, nonce uint64) {
 	store := ctx.KVStore(k.storeKey)
-	store.Set(types.GetLastEventNonceByValidatorKey(validator), nonce.Bytes())
+
+	store.Set(types.GetLastEventNonceByValidatorKey(validator), sdk.Uint64ToBigEndian(nonce))
 }
 
-func (k Keeper) HasClaim(ctx sdk.Context, claimType types.ClaimType, nonce types.UInt64Nonce, validator sdk.ValAddress, details types.AttestationDetails) bool {
+func (k Keeper) HasClaim(ctx sdk.Context, claimType types.ClaimType, nonce uint64, validator sdk.ValAddress, details types.AttestationDetails) bool {
 	store := ctx.KVStore(k.storeKey)
 	return store.Has(types.GetClaimKey(claimType, nonce, validator, details))
 }

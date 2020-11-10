@@ -20,6 +20,10 @@ enum BatchStatus {
 
 
 message OutgoingTxBatch {
+  option (gogoproto.marshaler)   = false;
+  option (gogoproto.sizer)       = false;
+  option (gogoproto.unmarshaler) = false;
+
   uint64                      nonce               = 1;
   repeated OutgoingTransferTx elements            = 2;
   google.protobuf.Timestamp   created_at          = 3 [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
@@ -31,6 +35,10 @@ message OutgoingTxBatch {
 }
 
 message OutgoingTransferTx {
+  option (gogoproto.marshaler)   = false;
+  option (gogoproto.sizer)       = false;
+  option (gogoproto.unmarshaler) = false;
+  
   uint64     id           = 1;
   string     sender       = 2;
   bytes      dest_address = 3;
