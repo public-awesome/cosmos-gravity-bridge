@@ -36,4 +36,4 @@ import (
 
 // }
 
-func RegisterRoutes(cliCtx client.Contet, r *mux.Router, storeName string) {}
+func RegisterRoutes(cliCtx client.Context, r *mux.Router, storeName string) {}

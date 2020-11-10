@@ -688,7 +688,7 @@ func (m *MsgBridgeSignatureSubmission) GetSignType() SignType {
 	if m != nil {
 		return m.SignType
 	}
-	return OptionEmpty
+	return SIGN_TYPE_UNKNOWN
 }
 
 func (m *MsgBridgeSignatureSubmission) GetOrchestrator() string {

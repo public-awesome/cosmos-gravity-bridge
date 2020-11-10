@@ -43,7 +43,9 @@ message BridgeDeposit {
 // ERC20Token unique identifier for an Ethereum erc20 token.
 message ERC20Token {
     // NOTE: i've migrated this to use sdk.Int as per the discussion earlier
-    string amount                 = 1 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Int", (gogoproto.nullable) = false];
+    // TODO: fix the sdk.Int generated code here
+    // string amount                 = 1 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Int", (gogoproto.nullable) = false];
+    uint64 amount                 = 1;
     string symbol                 = 2;
     bytes  token_contract_address = 3; 
 }

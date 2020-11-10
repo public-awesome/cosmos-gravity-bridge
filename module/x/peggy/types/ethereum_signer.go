@@ -57,23 +57,13 @@ func ValidateEthereumSignature(hash []byte, signature []byte, ethAddress string)
 	return nil
 }
 
-// SignType defines what has been signed by an orchestrator
-type SignType byte
-
-const (
-	SignTypeUnknown SignType = 0
-	// signed confirmations on cosmos for Ethereum side
-	SignTypeOrchestratorSignedMultiSigUpdate SignType = 1
-	SignTypeOrchestratorSignedWithdrawBatch  SignType = 2
-)
-
 var signTypeToNames = map[SignType]string{
-	SignTypeOrchestratorSignedMultiSigUpdate: "orchestrator_signed_multisig_update",
-	SignTypeOrchestratorSignedWithdrawBatch:  "orchestrator_signed_withdraw_batch",
+	SIGN_TYPE_ORCHESTRATOR_SIGNED_MULTI_SIG_UPDATE: "orchestrator_signed_multisig_update",
+	SIGN_TYPE_ORCHESTRATOR_SIGNED_WITHDRAW_BATCH:   "orchestrator_signed_withdraw_batch",
 }
 
 // AllSignTypes types that are signed with by the bridge multisig set
-var AllSignTypes = []SignType{SignTypeOrchestratorSignedMultiSigUpdate, SignTypeOrchestratorSignedWithdrawBatch}
+var AllSignTypes = []SignType{SIGN_TYPE_ORCHESTRATOR_SIGNED_MULTI_SIG_UPDATE, SIGN_TYPE_ORCHESTRATOR_SIGNED_WITHDRAW_BATCH}
 
 func IsSignType(s SignType) bool {
 	for _, v := range AllSignTypes {
@@ -91,7 +81,7 @@ func SignTypeFromName(s string) (SignType, bool) {
 			return v, true
 		}
 	}
-	return SignTypeUnknown, false
+	return SIGN_TYPE_UNKNOWN, false
 }
 func ToSignTypeNames(s ...SignType) []string {
 	r := make([]string, len(s))
@@ -99,10 +89,6 @@ func ToSignTypeNames(s ...SignType) []string {
 		r[i] = s[i].String()
 	}
 	return r
-}
-
-func (t SignType) String() string {
-	return signTypeToNames[t]
 }
 
 func (t SignType) Bytes() []byte {

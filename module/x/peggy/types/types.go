@@ -11,28 +11,22 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// BridgeValidator represents the validator data in the Ethereum bridge MultiSig set.
-type BridgeValidator struct {
-	Power           uint64          `json:"power"`
-	EthereumAddress EthereumAddress `json:"ethereum_address"`
-}
-
 func (b BridgeValidator) ValidateBasic() error {
 	if b.Power == 0 {
 		return sdkerrors.Wrap(ErrEmpty, "power")
 	}
-	if b.EthereumAddress.IsEmpty() {
+	if b.EthereumAddress == []byte{} {
 		return sdkerrors.Wrap(ErrEmpty, "address")
 	}
 	return nil
 }
 
 func (b BridgeValidator) isValid() bool {
-	return !b.EthereumAddress.IsEmpty() && b.Power != 0
+	return !(b.EthereumAddress == []byte{}) && b.Power != 0
 }
 
 // BridgeValidators is the sorted set of validator data for Ethereum bridge MultiSig set
-type BridgeValidators []BridgeValidator
+type BridgeValidators []*BridgeValidator
 
 func (b BridgeValidators) Sort() {
 	sort.Slice(b, func(i, j int) bool {
@@ -74,12 +68,6 @@ func (b BridgeValidators) ValidateBasic() error {
 		return sdkerrors.Wrap(ErrDuplicate, "addresses")
 	}
 	return nil
-}
-
-// Valset is the Ethereum Bridge Multsig Set
-type Valset struct {
-	Nonce   UInt64Nonce      `json:"nonce"`
-	Members BridgeValidators `json:"members"`
 }
 
 func NewValset(nonce UInt64Nonce, members BridgeValidators) Valset {
@@ -160,7 +148,7 @@ func (v Valset) GetCheckpoint() []byte {
 	var checkpoint [32]uint8
 	copy(checkpoint[:], checkpointBytes[:])
 
-	memberAddresses := make([]EthereumAddress, len(v.Members))
+	memberAddresses := make([][]byte, len(v.Members))
 	convertedPowers := make([]*big.Int, len(v.Members))
 	for i, m := range v.Members {
 		memberAddresses[i] = m.EthereumAddress
@@ -169,7 +157,7 @@ func (v Valset) GetCheckpoint() []byte {
 	// the word 'checkpoint' needs to be the same as the 'name' above in the checkpointAbiJson
 	// but other than that it's a constant that has no impact on the output. This is because
 	// it gets encoded as a function name which we must then discard.
-	bytes, packErr := contractAbi.Pack("checkpoint", peggyID, checkpoint, big.NewInt(int64(v.Nonce.Uint64())), memberAddresses, convertedPowers)
+	bytes, packErr := contractAbi.Pack("checkpoint", peggyID, checkpoint, big.NewInt(int64(v.Nonce)), memberAddresses, convertedPowers)
 
 	// this should never happen outside of test since any case that could crash on encoding
 	// should be filtered above.

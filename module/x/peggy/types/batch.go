@@ -3,44 +3,17 @@ package types
 import (
 	"math/big"
 	"strings"
-	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-type BatchStatus uint8
-
-const (
-	BatchStatusUnknown   BatchStatus = 0
-	BatchStatusPending   BatchStatus = 1 // initial status
-	BatchStatusSubmitted BatchStatus = 2 // in flight to ETH
-	BatchStatusProcessed BatchStatus = 3 // observed - end state
-	BatchStatusCancelled BatchStatus = 4 // end state
-)
-
-func (b BatchStatus) String() string {
-	return []string{"unknown", "pending", "submitted", "observed", "processed", "cancelled"}[b]
-}
-
-type OutgoingTxBatch struct {
-	Nonce              UInt64Nonce          `json:"nonce"`
-	Elements           []OutgoingTransferTx `json:"elements"`
-	CreatedAt          time.Time            `json:"created_at"`
-	TotalFee           ERC20Token           `json:"total_fee"`
-	BridgedDenominator BridgedDenominator   `json:"bridged_denominator"`
-	BatchStatus        BatchStatus          `json:"batch_status"`
-	Valset             Valset               `json:"valset"`
-	TokenContract      EthereumAddress      `json:"tokenContract"`
-}
-
 func (b *OutgoingTxBatch) Cancel() error {
-	if b.BatchStatus != BatchStatusPending {
+	if b.BatchStatus != BATCH_STATUS_PENDING {
 		return sdkerrors.Wrap(ErrInvalid, "status - batch not pending")
 	}
-	b.BatchStatus = BatchStatusCancelled
+	b.BatchStatus = BATCH_STATUS_CANCELED
 	return nil
 }
 
@@ -139,13 +112,14 @@ func (b OutgoingTxBatch) GetCheckpoint() ([]byte, error) {
 	copy(batchMethodName[:], methodNameBytes[:])
 
 	// Run through the elements of the batch and serialize them
-	txAmounts := make([]*big.Int, len(b.Elements))
-	txDestinations := make([]EthereumAddress, len(b.Elements))
-	txFees := make([]*big.Int, len(b.Elements))
+	// TODO: fix this to work with BigInts again
+	txAmounts := make([]uint64, len(b.Elements))
+	txDestinations := make([][]byte, len(b.Elements))
+	txFees := make([]uint64, len(b.Elements))
 	for i, tx := range b.Elements {
-		txAmounts[i] = big.NewInt(int64(tx.Amount.Amount))
+		txAmounts[i] = tx.Amount.Amount
 		txDestinations[i] = tx.DestAddress
-		txFees[i] = big.NewInt(int64(tx.BridgeFee.Amount))
+		txFees[i] = tx.BridgeFee.Amount
 	}
 
 	batchNonce := big.NewInt(int64(b.Nonce))
@@ -211,17 +185,9 @@ func (b OutgoingTxBatch) GetCheckpoint() ([]byte, error) {
 }
 
 func (b *OutgoingTxBatch) Observed() error {
-	if b.BatchStatus != BatchStatusPending && b.BatchStatus != BatchStatusSubmitted {
+	if b.BatchStatus != BATCH_STATUS_PENDING && b.BatchStatus != BATCH_STATUS_SUBMITTED {
 		return sdkerrors.Wrap(ErrInvalid, "status")
 	}
-	b.BatchStatus = BatchStatusProcessed
+	b.BatchStatus = BATCH_STATUS_PROCESSED
 	return nil
-}
-
-type OutgoingTransferTx struct {
-	ID          uint64          `json:"txid"`
-	Sender      sdk.AccAddress  `json:"sender"`
-	DestAddress EthereumAddress `json:"dest_address"`
-	Amount      ERC20Token      `json:"send"`
-	BridgeFee   ERC20Token      `json:"bridge_fee"`
 }

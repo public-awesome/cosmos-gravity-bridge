@@ -11,7 +11,7 @@ option go_package = "github.com/althea-net/peggy/module/x/peggy/types";
 
 enum BatchStatus {
   option (gogoproto.goproto_enum_prefix) = false;
-  BATCH_STATUS_UNKNOWN   = 0 [(gogoproto.enumvalue_customname) = "OptionEmpty"];
+  BATCH_STATUS_UNKNOWN   = 0;
   BATCH_STATUS_PENDING   = 1;  // inital status
   BATCH_STATUS_SUBMITTED = 2;  // in flight to ETH
   BATCH_STATUS_PROCESSED = 3;  // observed - end state
