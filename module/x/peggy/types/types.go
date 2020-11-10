@@ -153,10 +153,10 @@ func (v Valset) GetCheckpoint() []byte {
 	var checkpoint [32]uint8
 	copy(checkpoint[:], checkpointBytes[:])
 
-	memberAddresses := make([][]byte, len(v.Members))
+	memberAddresses := make([]EthereumAddress, len(v.Members))
 	convertedPowers := make([]*big.Int, len(v.Members))
 	for i, m := range v.Members {
-		memberAddresses[i] = m.EthereumAddress
+		memberAddresses[i] = NewEthereumAddress(string(m.EthereumAddress))
 		convertedPowers[i] = big.NewInt(int64(m.Power))
 	}
 	// the word 'checkpoint' needs to be the same as the 'name' above in the checkpointAbiJson

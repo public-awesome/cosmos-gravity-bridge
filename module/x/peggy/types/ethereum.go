@@ -22,6 +22,10 @@ type EthereumAddress gethCommon.Address
 // NewEthereumAddress is a constructor function for EthereumAddress
 func NewEthereumAddress(address string) EthereumAddress {
 	e := EthereumAddress(gethCommon.HexToAddress(address))
+	if err := e.ValidateBasic(); err != nil {
+		// TODO: change this into informative error and return one
+		panic(err)
+	}
 	return e //, e.ValidateBasic() // TODO: check and return error
 }
 

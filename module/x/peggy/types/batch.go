@@ -113,11 +113,11 @@ func (b OutgoingTxBatch) GetCheckpoint() ([]byte, error) {
 
 	// Run through the elements of the batch and serialize them
 	txAmounts := make([]*big.Int, len(b.Elements))
-	txDestinations := make([][]byte, len(b.Elements))
+	txDestinations := make([]EthereumAddress, len(b.Elements))
 	txFees := make([]*big.Int, len(b.Elements))
 	for i, tx := range b.Elements {
 		txAmounts[i] = tx.Amount.Amount.BigInt()
-		txDestinations[i] = tx.DestAddress
+		txDestinations[i] = NewEthereumAddress(string(tx.DestAddress))
 		txFees[i] = tx.BridgeFee.Amount.BigInt()
 	}
 

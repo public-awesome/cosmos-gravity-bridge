@@ -42,6 +42,9 @@ message BridgeDeposit {
 
 // ERC20Token unique identifier for an Ethereum erc20 token.
 message ERC20Token {
+    option (gogoproto.marshaler)   = false;
+    option (gogoproto.sizer)       = false;
+
     // NOTE: i've migrated this to use sdk.Int as per the discussion earlier
     // TODO: fix the sdk.Int generated code here
     string amount                 = 1 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Int", (gogoproto.nullable) = false];
