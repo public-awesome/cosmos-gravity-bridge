@@ -80,6 +80,7 @@ type Attestation struct {
 	Details    AttestationDetails `json:"details,omitempty"`
 }
 
+// TODO: register interface in module codec
 // AttestationDetails is the payload of an attestation.
 type AttestationDetails interface {
 	// Hash creates hash of the object that is supposed to be unique during the live time of the block chain.

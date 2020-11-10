@@ -5,8 +5,14 @@ package types
 
 import (
 	fmt "fmt"
+	types1 "github.com/cosmos/cosmos-sdk/codec/types"
+	types "github.com/cosmos/cosmos-sdk/types"
+	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
+	_ "github.com/regen-network/cosmos-proto"
+	io "io"
 	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -20,17 +26,2941 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
+// ValsetConfirm
+// this is the message sent by the validators when they wish to submit their signatures over
+// the validator set at a given block height. A validator must first call MsgSetEthAddress to
+// set their Ethereum address to be used for signing. Then someone (anyone) must make a ValsetRequest
+// the request is essentially a messaging mechanism to determine which block all validators should submit
+// signatures over. Finally validators sign the validator set, powers, and Ethereum addresses of the
+// entire validator set at the height of a ValsetRequest and submit that signature with this message
+// a ValsetConfirm.
+//
+// If a sufficient number of validators (66% of voting power) (A) have set Ethereum addresses and (B)
+// submit ValsetConfirm messages with their signatures it is then possible for anyone to view these
+// signatures in the chain store and submit them to Ethereum to update the validator set
+// -------------
+// deprecated should use MsgBridgeSignatureSubmission instead
+type MsgValsetConfirm struct {
+	Nonce      uint64 `protobuf:"varint,1,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	Validator  string `protobuf:"bytes,2,opt,name=validator,proto3" json:"validator,omitempty"`
+	EthAddress []byte `protobuf:"bytes,3,opt,name=eth_address,json=ethAddress,proto3" json:"eth_address,omitempty"`
+	Signature  string `protobuf:"bytes,4,opt,name=signature,proto3" json:"signature,omitempty"`
+}
+
+func (m *MsgValsetConfirm) Reset()         { *m = MsgValsetConfirm{} }
+func (m *MsgValsetConfirm) String() string { return proto.CompactTextString(m) }
+func (*MsgValsetConfirm) ProtoMessage()    {}
+func (*MsgValsetConfirm) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dd9dca941c262d1e, []int{0}
+}
+func (m *MsgValsetConfirm) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgValsetConfirm) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgValsetConfirm.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgValsetConfirm) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgValsetConfirm.Merge(m, src)
+}
+func (m *MsgValsetConfirm) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgValsetConfirm) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgValsetConfirm.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgValsetConfirm proto.InternalMessageInfo
+
+func (m *MsgValsetConfirm) GetNonce() uint64 {
+	if m != nil {
+		return m.Nonce
+	}
+	return 0
+}
+
+func (m *MsgValsetConfirm) GetValidator() string {
+	if m != nil {
+		return m.Validator
+	}
+	return ""
+}
+
+func (m *MsgValsetConfirm) GetEthAddress() []byte {
+	if m != nil {
+		return m.EthAddress
+	}
+	return nil
+}
+
+func (m *MsgValsetConfirm) GetSignature() string {
+	if m != nil {
+		return m.Signature
+	}
+	return ""
+}
+
+// ValsetRequest
+// This message starts off the validator set update process by coordinating a block height
+// around which signatures over the validators, powers, and ethereum addresses will be made
+// and submitted using a ValsetConfirm. Anyone can send this message as it is not authenticated
+// except as a valid tx. In theory people could spam it and the validators will have to determine which
+// block to actually coordinate around by looking over the valset requests and seeing which one
+// some other validator has already submitted a ValsetResponse for.
+// -------------
+type MsgValsetRequest struct {
+	Requester string `protobuf:"bytes,1,opt,name=requester,proto3" json:"requester,omitempty"`
+}
+
+func (m *MsgValsetRequest) Reset()         { *m = MsgValsetRequest{} }
+func (m *MsgValsetRequest) String() string { return proto.CompactTextString(m) }
+func (*MsgValsetRequest) ProtoMessage()    {}
+func (*MsgValsetRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dd9dca941c262d1e, []int{1}
+}
+func (m *MsgValsetRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgValsetRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgValsetRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgValsetRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgValsetRequest.Merge(m, src)
+}
+func (m *MsgValsetRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgValsetRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgValsetRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgValsetRequest proto.InternalMessageInfo
+
+func (m *MsgValsetRequest) GetRequester() string {
+	if m != nil {
+		return m.Requester
+	}
+	return ""
+}
+
+// SetEthAddress
+// This is used by the validators to set the Ethereum address that represents them on the
+// Ethereum side of the bridge. They must sign their Cosmos address using the Ethereum address
+// they have submitted.
+// Like ValsetResponse this message can in theory be submitted by anyone, but only the current
+// validator sets submissions carry any weight.
+// -------------
+type MsgSetEthAddress struct {
+	Address   []byte `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Validator string `protobuf:"bytes,2,opt,name=validator,proto3" json:"validator,omitempty"`
+	Signature string `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
+}
+
+func (m *MsgSetEthAddress) Reset()         { *m = MsgSetEthAddress{} }
+func (m *MsgSetEthAddress) String() string { return proto.CompactTextString(m) }
+func (*MsgSetEthAddress) ProtoMessage()    {}
+func (*MsgSetEthAddress) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dd9dca941c262d1e, []int{2}
+}
+func (m *MsgSetEthAddress) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgSetEthAddress) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgSetEthAddress.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgSetEthAddress) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgSetEthAddress.Merge(m, src)
+}
+func (m *MsgSetEthAddress) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgSetEthAddress) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgSetEthAddress.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgSetEthAddress proto.InternalMessageInfo
+
+func (m *MsgSetEthAddress) GetAddress() []byte {
+	if m != nil {
+		return m.Address
+	}
+	return nil
+}
+
+func (m *MsgSetEthAddress) GetValidator() string {
+	if m != nil {
+		return m.Validator
+	}
+	return ""
+}
+
+func (m *MsgSetEthAddress) GetSignature() string {
+	if m != nil {
+		return m.Signature
+	}
+	return ""
+}
+
+// MsgSendToEth
+// This is the message that a user calls when they want to bridge an asset
+// TODO right now this needs to be locked to a single ERC20
+// TODO fixed fee amounts for now, variable fee amounts in the fee field later
+// TODO actually remove amounts form the users bank balances
+// TODO this message modifies the on chain store by adding itself to a txpool
+// it will later be removed when it is included in a batch and successfully submitted
+// tokens are removed from the users balance immediately
+// -------------
+type MsgSendToEth struct {
+	// the source address on Cosmos
+	Sender string `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
+	// the destination address on Ethereum
+	DestAddress []byte `protobuf:"bytes,2,opt,name=dest_address,json=destAddress,proto3" json:"dest_address,omitempty"`
+	// the coin to send across the bridge, note the restriction that this is a
+	// single coin not a set of coins that is normal in other Cosmos messages
+	Amount types.Coin `protobuf:"bytes,3,opt,name=amount,proto3" json:"amount"`
+	// the fee paid for the bridge, distinct from the fee paid to the chain to
+	// actually send this message in the first place. So a successful send has
+	// two layers of fees for the user
+	BridgeFee types.Coin `protobuf:"bytes,4,opt,name=bridge_fee,json=bridgeFee,proto3" json:"bridge_fee"`
+}
+
+func (m *MsgSendToEth) Reset()         { *m = MsgSendToEth{} }
+func (m *MsgSendToEth) String() string { return proto.CompactTextString(m) }
+func (*MsgSendToEth) ProtoMessage()    {}
+func (*MsgSendToEth) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dd9dca941c262d1e, []int{3}
+}
+func (m *MsgSendToEth) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgSendToEth) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgSendToEth.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgSendToEth) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgSendToEth.Merge(m, src)
+}
+func (m *MsgSendToEth) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgSendToEth) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgSendToEth.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgSendToEth proto.InternalMessageInfo
+
+func (m *MsgSendToEth) GetSender() string {
+	if m != nil {
+		return m.Sender
+	}
+	return ""
+}
+
+func (m *MsgSendToEth) GetDestAddress() []byte {
+	if m != nil {
+		return m.DestAddress
+	}
+	return nil
+}
+
+func (m *MsgSendToEth) GetAmount() types.Coin {
+	if m != nil {
+		return m.Amount
+	}
+	return types.Coin{}
+}
+
+func (m *MsgSendToEth) GetBridgeFee() types.Coin {
+	if m != nil {
+		return m.BridgeFee
+	}
+	return types.Coin{}
+}
+
+// MsgRequestBatch
+// this is a message anyone can send that requests a batch of transactions to send across
+// the bridge be created for whatever block height this message is included in. This acts as
+// a coordination point, the handler for this message looks at the AddToOutgoingPool tx's in the store
+// and generates a batch, also available in the store tied to this message. The validators then
+// grab this batch, sign it, submit the signatures with a MsgConfirmBatch before a relayer can
+// finally submit the batch
+// -------------
+type MsgRequestBatch struct {
+	Requester string `protobuf:"bytes,1,opt,name=requester,proto3" json:"requester,omitempty"`
+	Denom     string `protobuf:"bytes,2,opt,name=denom,proto3" json:"denom,omitempty"`
+}
+
+func (m *MsgRequestBatch) Reset()         { *m = MsgRequestBatch{} }
+func (m *MsgRequestBatch) String() string { return proto.CompactTextString(m) }
+func (*MsgRequestBatch) ProtoMessage()    {}
+func (*MsgRequestBatch) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dd9dca941c262d1e, []int{4}
+}
+func (m *MsgRequestBatch) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgRequestBatch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgRequestBatch.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgRequestBatch) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgRequestBatch.Merge(m, src)
+}
+func (m *MsgRequestBatch) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgRequestBatch) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgRequestBatch.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgRequestBatch proto.InternalMessageInfo
+
+func (m *MsgRequestBatch) GetRequester() string {
+	if m != nil {
+		return m.Requester
+	}
+	return ""
+}
+
+func (m *MsgRequestBatch) GetDenom() string {
+	if m != nil {
+		return m.Denom
+	}
+	return ""
+}
+
+// MsgConfirmBatch
+// When validators observe a MsgRequestBatch they form a batch by ordering transactions currently
+// in the txqueue in order of highest to lowest fee, cutting off when the batch either reaches a
+// hardcoded maximum size (to be decided, probably around 100) or when transactions stop being
+// profitable (TODO determine this without nondeterminism)
+// This message includes the batch as well as an Ethereum signature over this batch by the validator
+// -------------
+// deprecated should use MsgBridgeSignatureSubmission instead
+type MsgConfirmBatch struct {
+	Nonce     uint64 `protobuf:"varint,1,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	Validator string `protobuf:"bytes,2,opt,name=validator,proto3" json:"validator,omitempty"`
+	Signature string `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
+}
+
+func (m *MsgConfirmBatch) Reset()         { *m = MsgConfirmBatch{} }
+func (m *MsgConfirmBatch) String() string { return proto.CompactTextString(m) }
+func (*MsgConfirmBatch) ProtoMessage()    {}
+func (*MsgConfirmBatch) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dd9dca941c262d1e, []int{5}
+}
+func (m *MsgConfirmBatch) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgConfirmBatch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgConfirmBatch.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgConfirmBatch) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgConfirmBatch.Merge(m, src)
+}
+func (m *MsgConfirmBatch) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgConfirmBatch) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgConfirmBatch.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgConfirmBatch proto.InternalMessageInfo
+
+func (m *MsgConfirmBatch) GetNonce() uint64 {
+	if m != nil {
+		return m.Nonce
+	}
+	return 0
+}
+
+func (m *MsgConfirmBatch) GetValidator() string {
+	if m != nil {
+		return m.Validator
+	}
+	return ""
+}
+
+func (m *MsgConfirmBatch) GetSignature() string {
+	if m != nil {
+		return m.Signature
+	}
+	return ""
+}
+
+// EthereumBridgeDepositClaim claims that a token was deposited on the bridge contract.
+type EthereumBridgeDepositClaim struct {
+	Nonce          uint64      `protobuf:"varint,1,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	Erc20Token     *ERC20Token `protobuf:"bytes,2,opt,name=erc20_token,json=erc20Token,proto3" json:"erc20_token,omitempty"`
+	EthereumSender []byte      `protobuf:"bytes,3,opt,name=ethereum_sender,json=ethereumSender,proto3" json:"ethereum_sender,omitempty"`
+	CosmosReceiver string      `protobuf:"bytes,4,opt,name=cosmos_receiver,json=cosmosReceiver,proto3" json:"cosmos_receiver,omitempty"`
+}
+
+func (m *EthereumBridgeDepositClaim) Reset()         { *m = EthereumBridgeDepositClaim{} }
+func (m *EthereumBridgeDepositClaim) String() string { return proto.CompactTextString(m) }
+func (*EthereumBridgeDepositClaim) ProtoMessage()    {}
+func (*EthereumBridgeDepositClaim) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dd9dca941c262d1e, []int{6}
+}
+func (m *EthereumBridgeDepositClaim) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EthereumBridgeDepositClaim) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EthereumBridgeDepositClaim.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EthereumBridgeDepositClaim) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EthereumBridgeDepositClaim.Merge(m, src)
+}
+func (m *EthereumBridgeDepositClaim) XXX_Size() int {
+	return m.Size()
+}
+func (m *EthereumBridgeDepositClaim) XXX_DiscardUnknown() {
+	xxx_messageInfo_EthereumBridgeDepositClaim.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EthereumBridgeDepositClaim proto.InternalMessageInfo
+
+func (m *EthereumBridgeDepositClaim) GetNonce() uint64 {
+	if m != nil {
+		return m.Nonce
+	}
+	return 0
+}
+
+func (m *EthereumBridgeDepositClaim) GetErc20Token() *ERC20Token {
+	if m != nil {
+		return m.Erc20Token
+	}
+	return nil
+}
+
+func (m *EthereumBridgeDepositClaim) GetEthereumSender() []byte {
+	if m != nil {
+		return m.EthereumSender
+	}
+	return nil
+}
+
+func (m *EthereumBridgeDepositClaim) GetCosmosReceiver() string {
+	if m != nil {
+		return m.CosmosReceiver
+	}
+	return ""
+}
+
+// EthereumBridgeWithdrawalBatchClaim claims that a batch of withdrawal operations on the bridge contract was executed.
+type EthereumBridgeWithdrawalBatchClaim struct {
+	EventNonce uint64 `protobuf:"varint,1,opt,name=event_nonce,json=eventNonce,proto3" json:"event_nonce,omitempty"`
+	BatchNonce uint64 `protobuf:"varint,2,opt,name=batch_nonce,json=batchNonce,proto3" json:"batch_nonce,omitempty"`
+}
+
+func (m *EthereumBridgeWithdrawalBatchClaim) Reset()         { *m = EthereumBridgeWithdrawalBatchClaim{} }
+func (m *EthereumBridgeWithdrawalBatchClaim) String() string { return proto.CompactTextString(m) }
+func (*EthereumBridgeWithdrawalBatchClaim) ProtoMessage()    {}
+func (*EthereumBridgeWithdrawalBatchClaim) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dd9dca941c262d1e, []int{7}
+}
+func (m *EthereumBridgeWithdrawalBatchClaim) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EthereumBridgeWithdrawalBatchClaim) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EthereumBridgeWithdrawalBatchClaim.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EthereumBridgeWithdrawalBatchClaim) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EthereumBridgeWithdrawalBatchClaim.Merge(m, src)
+}
+func (m *EthereumBridgeWithdrawalBatchClaim) XXX_Size() int {
+	return m.Size()
+}
+func (m *EthereumBridgeWithdrawalBatchClaim) XXX_DiscardUnknown() {
+	xxx_messageInfo_EthereumBridgeWithdrawalBatchClaim.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EthereumBridgeWithdrawalBatchClaim proto.InternalMessageInfo
+
+func (m *EthereumBridgeWithdrawalBatchClaim) GetEventNonce() uint64 {
+	if m != nil {
+		return m.EventNonce
+	}
+	return 0
+}
+
+func (m *EthereumBridgeWithdrawalBatchClaim) GetBatchNonce() uint64 {
+	if m != nil {
+		return m.BatchNonce
+	}
+	return 0
+}
+
+// MsgCreateEthereumClaims
+// this message essentially acts as the oracle between Ethereum and Cosmos, when an orchestrator sees
+// that a batch/ deposit/ multisig set update has been submitted on to the Ethereum blockchain they
+// will submit this message which acts as their oracle attestation. When more than 66% of the active
+// validator set has claimed to have seen the transaction enter the ethereum blockchain it is "observed"
+// and state transitions and operations are triggered on the cosmos side.
+type MsgCreateEthereumClaims struct {
+	EthereumChainId uint64 `protobuf:"varint,1,opt,name=ethereum_chain_id,json=ethereumChainId,proto3" json:"ethereum_chain_id,omitempty"`
+	// do we need to specify contract address? can we get this from the store?
+	BridgeContractAddress []byte        `protobuf:"bytes,2,opt,name=bridge_contract_address,json=bridgeContractAddress,proto3" json:"bridge_contract_address,omitempty"`
+	Orchestrator          string        `protobuf:"bytes,3,opt,name=orchestrator,proto3" json:"orchestrator,omitempty"`
+	Claims                []*types1.Any `protobuf:"bytes,4,rep,name=claims,proto3" json:"claims,omitempty"`
+}
+
+func (m *MsgCreateEthereumClaims) Reset()         { *m = MsgCreateEthereumClaims{} }
+func (m *MsgCreateEthereumClaims) String() string { return proto.CompactTextString(m) }
+func (*MsgCreateEthereumClaims) ProtoMessage()    {}
+func (*MsgCreateEthereumClaims) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dd9dca941c262d1e, []int{8}
+}
+func (m *MsgCreateEthereumClaims) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgCreateEthereumClaims) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgCreateEthereumClaims.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgCreateEthereumClaims) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgCreateEthereumClaims.Merge(m, src)
+}
+func (m *MsgCreateEthereumClaims) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgCreateEthereumClaims) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgCreateEthereumClaims.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgCreateEthereumClaims proto.InternalMessageInfo
+
+func (m *MsgCreateEthereumClaims) GetEthereumChainId() uint64 {
+	if m != nil {
+		return m.EthereumChainId
+	}
+	return 0
+}
+
+func (m *MsgCreateEthereumClaims) GetBridgeContractAddress() []byte {
+	if m != nil {
+		return m.BridgeContractAddress
+	}
+	return nil
+}
+
+func (m *MsgCreateEthereumClaims) GetOrchestrator() string {
+	if m != nil {
+		return m.Orchestrator
+	}
+	return ""
+}
+
+func (m *MsgCreateEthereumClaims) GetClaims() []*types1.Any {
+	if m != nil {
+		return m.Claims
+	}
+	return nil
+}
+
+// MsgBridgeSignatureSubmission submits the Ethereum signature for a given nonce an claim type.
+type MsgBridgeSignatureSubmission struct {
+	Nonce             uint64   `protobuf:"varint,1,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	SignType          SignType `protobuf:"varint,2,opt,name=sign_type,json=signType,proto3,enum=module.peggy.v1beta1.SignType" json:"sign_type,omitempty"`
+	Orchestrator      string   `protobuf:"bytes,3,opt,name=orchestrator,proto3" json:"orchestrator,omitempty"`
+	EthereumSignature string   `protobuf:"bytes,4,opt,name=ethereum_signature,json=ethereumSignature,proto3" json:"ethereum_signature,omitempty"`
+}
+
+func (m *MsgBridgeSignatureSubmission) Reset()         { *m = MsgBridgeSignatureSubmission{} }
+func (m *MsgBridgeSignatureSubmission) String() string { return proto.CompactTextString(m) }
+func (*MsgBridgeSignatureSubmission) ProtoMessage()    {}
+func (*MsgBridgeSignatureSubmission) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dd9dca941c262d1e, []int{9}
+}
+func (m *MsgBridgeSignatureSubmission) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgBridgeSignatureSubmission) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgBridgeSignatureSubmission.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgBridgeSignatureSubmission) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgBridgeSignatureSubmission.Merge(m, src)
+}
+func (m *MsgBridgeSignatureSubmission) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgBridgeSignatureSubmission) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgBridgeSignatureSubmission.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgBridgeSignatureSubmission proto.InternalMessageInfo
+
+func (m *MsgBridgeSignatureSubmission) GetNonce() uint64 {
+	if m != nil {
+		return m.Nonce
+	}
+	return 0
+}
+
+func (m *MsgBridgeSignatureSubmission) GetSignType() SignType {
+	if m != nil {
+		return m.SignType
+	}
+	return OptionEmpty
+}
+
+func (m *MsgBridgeSignatureSubmission) GetOrchestrator() string {
+	if m != nil {
+		return m.Orchestrator
+	}
+	return ""
+}
+
+func (m *MsgBridgeSignatureSubmission) GetEthereumSignature() string {
+	if m != nil {
+		return m.EthereumSignature
+	}
+	return ""
+}
+
+func init() {
+	proto.RegisterType((*MsgValsetConfirm)(nil), "module.peggy.v1beta1.MsgValsetConfirm")
+	proto.RegisterType((*MsgValsetRequest)(nil), "module.peggy.v1beta1.MsgValsetRequest")
+	proto.RegisterType((*MsgSetEthAddress)(nil), "module.peggy.v1beta1.MsgSetEthAddress")
+	proto.RegisterType((*MsgSendToEth)(nil), "module.peggy.v1beta1.MsgSendToEth")
+	proto.RegisterType((*MsgRequestBatch)(nil), "module.peggy.v1beta1.MsgRequestBatch")
+	proto.RegisterType((*MsgConfirmBatch)(nil), "module.peggy.v1beta1.MsgConfirmBatch")
+	proto.RegisterType((*EthereumBridgeDepositClaim)(nil), "module.peggy.v1beta1.EthereumBridgeDepositClaim")
+	proto.RegisterType((*EthereumBridgeWithdrawalBatchClaim)(nil), "module.peggy.v1beta1.EthereumBridgeWithdrawalBatchClaim")
+	proto.RegisterType((*MsgCreateEthereumClaims)(nil), "module.peggy.v1beta1.MsgCreateEthereumClaims")
+	proto.RegisterType((*MsgBridgeSignatureSubmission)(nil), "module.peggy.v1beta1.MsgBridgeSignatureSubmission")
+}
+
 func init() { proto.RegisterFile("module/peggy/v1beta1/msgs.proto", fileDescriptor_dd9dca941c262d1e) }
 
 var fileDescriptor_dd9dca941c262d1e = []byte{
-	// 135 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0xcf, 0xcd, 0x4f, 0x29,
-	0xcd, 0x49, 0xd5, 0x2f, 0x48, 0x4d, 0x4f, 0xaf, 0xd4, 0x2f, 0x33, 0x4c, 0x4a, 0x2d, 0x49, 0x34,
-	0xd4, 0xcf, 0x2d, 0x4e, 0x2f, 0xd6, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x12, 0x81, 0x28, 0xd0,
-	0x03, 0x2b, 0xd0, 0x83, 0x2a, 0x70, 0xf2, 0x3a, 0xf1, 0x48, 0x8e, 0xf1, 0xc2, 0x23, 0x39, 0xc6,
-	0x07, 0x8f, 0xe4, 0x18, 0x27, 0x3c, 0x96, 0x63, 0xb8, 0xf0, 0x58, 0x8e, 0xe1, 0xc6, 0x63, 0x39,
-	0x86, 0x28, 0x83, 0xf4, 0xcc, 0x92, 0x8c, 0xd2, 0x24, 0xbd, 0xe4, 0xfc, 0x5c, 0xfd, 0xc4, 0x9c,
-	0x92, 0x8c, 0xd4, 0x44, 0xdd, 0xbc, 0xd4, 0x12, 0xa8, 0xf9, 0x50, 0xcb, 0x2a, 0xa0, 0xdc, 0x92,
-	0xca, 0x82, 0xd4, 0xe2, 0x24, 0x36, 0xb0, 0x45, 0xc6, 0x80, 0x00, 0x00, 0x00, 0xff, 0xff, 0x67,
-	0x4f, 0x1d, 0x1a, 0x8b, 0x00, 0x00, 0x00,
+	// 797 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x55, 0xcd, 0x8e, 0xe3, 0x44,
+	0x10, 0x1e, 0xcf, 0x0c, 0x81, 0x74, 0xc2, 0x0c, 0x6b, 0x05, 0x36, 0x3b, 0x5a, 0x39, 0xc1, 0x07,
+	0x36, 0x5a, 0x69, 0x9c, 0x6c, 0x90, 0xe0, 0x80, 0x04, 0x9a, 0x84, 0x20, 0x81, 0x34, 0x1c, 0x9c,
+	0x11, 0x48, 0x5c, 0xac, 0xb6, 0x5d, 0xb1, 0x5b, 0xc4, 0xdd, 0xa1, 0xbb, 0x1d, 0xc8, 0x03, 0x70,
+	0xe7, 0x61, 0x78, 0x02, 0x84, 0xc4, 0x8a, 0xd3, 0x1e, 0x39, 0x21, 0x94, 0x79, 0x11, 0xd4, 0x3f,
+	0x76, 0x26, 0xab, 0xec, 0x32, 0xe2, 0xd6, 0xf5, 0xf9, 0xab, 0xae, 0xaf, 0xaa, 0xbf, 0x6e, 0xa3,
+	0x5e, 0xc1, 0xd2, 0x72, 0x09, 0xc3, 0x15, 0x64, 0xd9, 0x66, 0xb8, 0x7e, 0x16, 0x83, 0xc4, 0xcf,
+	0x86, 0x85, 0xc8, 0x44, 0xb0, 0xe2, 0x4c, 0x32, 0xb7, 0x63, 0x08, 0x81, 0x26, 0x04, 0x96, 0x70,
+	0xe1, 0x25, 0x4c, 0x14, 0x4c, 0x0c, 0x63, 0x2c, 0xa0, 0xce, 0x4a, 0x18, 0xa1, 0x26, 0xeb, 0xa2,
+	0x93, 0xb1, 0x8c, 0xe9, 0xe5, 0x50, 0xad, 0x2c, 0xfa, 0xc1, 0xc1, 0x62, 0x58, 0x4a, 0x10, 0x12,
+	0x4b, 0xc2, 0xaa, 0xec, 0xa7, 0x07, 0x79, 0x20, 0x73, 0xe0, 0x50, 0x16, 0x91, 0x20, 0x19, 0x05,
+	0x6e, 0xb9, 0x8f, 0x32, 0xc6, 0x32, 0xc5, 0x55, 0x51, 0x5c, 0x2e, 0x86, 0x98, 0x6e, 0xaa, 0x4f,
+	0x46, 0x64, 0x64, 0x74, 0x98, 0xc0, 0x7c, 0xf2, 0x7f, 0x76, 0xd0, 0x3b, 0xd7, 0x22, 0xfb, 0x06,
+	0x2f, 0x05, 0xc8, 0x29, 0xa3, 0x0b, 0xc2, 0x0b, 0xb7, 0x83, 0xde, 0xa0, 0x8c, 0x26, 0xd0, 0x75,
+	0xfa, 0xce, 0xe0, 0x34, 0x34, 0x81, 0xfb, 0x18, 0x35, 0xd7, 0x78, 0x49, 0x52, 0x2c, 0x19, 0xef,
+	0x1e, 0xf7, 0x9d, 0x41, 0x33, 0xdc, 0x01, 0x6e, 0x0f, 0xb5, 0x40, 0xe6, 0x11, 0x4e, 0x53, 0x0e,
+	0x42, 0x74, 0x4f, 0xfa, 0xce, 0xa0, 0x1d, 0x22, 0x90, 0xf9, 0x95, 0x41, 0x54, 0xba, 0xd2, 0x8b,
+	0x65, 0xc9, 0xa1, 0x7b, 0x6a, 0xd2, 0x6b, 0xc0, 0x1f, 0xdd, 0x91, 0x11, 0xc2, 0x0f, 0x25, 0x08,
+	0xa9, 0x32, 0xb8, 0x59, 0x02, 0xd7, 0x52, 0x9a, 0xe1, 0x0e, 0xf0, 0x73, 0x9d, 0x31, 0x07, 0x39,
+	0xdb, 0xd5, 0xe8, 0xa2, 0x37, 0x2b, 0x01, 0x8e, 0x16, 0x50, 0x85, 0xff, 0x21, 0x7e, 0x4f, 0xdb,
+	0xc9, 0xcb, 0xda, 0x7e, 0x73, 0x50, 0x5b, 0x97, 0xa2, 0xe9, 0x0d, 0x9b, 0xc9, 0xdc, 0x7d, 0x0f,
+	0x35, 0x04, 0xd0, 0xb4, 0x56, 0x65, 0x23, 0xf7, 0x7d, 0xd4, 0x4e, 0x41, 0xc8, 0x7a, 0x08, 0xc7,
+	0x5a, 0x43, 0x4b, 0x61, 0x95, 0xc2, 0x8f, 0x51, 0x03, 0x17, 0xac, 0xa4, 0x52, 0x97, 0x69, 0x8d,
+	0x1f, 0x05, 0xf6, 0x38, 0x94, 0x81, 0x2a, 0x57, 0x05, 0x53, 0x46, 0xe8, 0xe4, 0xf4, 0xf9, 0xdf,
+	0xbd, 0xa3, 0xd0, 0xd2, 0xdd, 0x4f, 0x11, 0x8a, 0x39, 0x49, 0x33, 0x88, 0x16, 0x60, 0xe6, 0x77,
+	0x8f, 0xe4, 0xa6, 0x49, 0xf9, 0x02, 0xc0, 0x9f, 0xa1, 0xf3, 0x6b, 0x91, 0xd9, 0xd1, 0x4e, 0xb0,
+	0x4c, 0xf2, 0xd7, 0xcf, 0x57, 0x99, 0x20, 0x05, 0xca, 0x0a, 0x3b, 0x2d, 0x13, 0xf8, 0x89, 0xde,
+	0xc6, 0x1a, 0xc5, 0x6c, 0xf3, 0x7f, 0xdc, 0xf2, 0xfa, 0x81, 0xff, 0xe1, 0xa0, 0x8b, 0x99, 0x35,
+	0xf9, 0x44, 0x77, 0xf0, 0x39, 0xac, 0x98, 0x20, 0x72, 0xba, 0xc4, 0xe4, 0x55, 0xf6, 0xbc, 0x42,
+	0x2d, 0xe0, 0xc9, 0x78, 0x14, 0x49, 0xf6, 0x3d, 0x50, 0x5d, 0xb2, 0x35, 0xee, 0x07, 0x87, 0x6e,
+	0x6d, 0x30, 0x0b, 0xa7, 0xe3, 0xd1, 0x8d, 0xe2, 0x85, 0x48, 0x27, 0xe9, 0xb5, 0xfb, 0x04, 0x9d,
+	0xef, 0xee, 0x96, 0x39, 0x60, 0xe3, 0xe3, 0xb3, 0x0a, 0x9e, 0x9b, 0x83, 0x7e, 0x82, 0xce, 0xed,
+	0x95, 0xe2, 0x90, 0x00, 0x59, 0x03, 0xb7, 0x8e, 0x3e, 0x33, 0x70, 0x68, 0x51, 0x7f, 0x81, 0xfc,
+	0xfd, 0x46, 0xbe, 0x25, 0x32, 0x4f, 0x39, 0xfe, 0x11, 0x2f, 0xf5, 0xf0, 0x4c, 0x43, 0xea, 0xee,
+	0xac, 0x81, 0xca, 0xe8, 0x6e, 0x5b, 0x48, 0x43, 0x5f, 0xeb, 0xde, 0x7a, 0xa8, 0x15, 0x2b, 0xba,
+	0x25, 0x1c, 0x1b, 0x82, 0x86, 0x34, 0xc1, 0xdf, 0x3a, 0xe8, 0xa1, 0x3a, 0x17, 0x0e, 0x58, 0x42,
+	0x55, 0x51, 0x6f, 0x2e, 0xdc, 0xa7, 0xe8, 0x41, 0xdd, 0x55, 0x92, 0x63, 0x42, 0x23, 0x92, 0xda,
+	0x1a, 0x75, 0xbb, 0x53, 0x85, 0x7f, 0x99, 0xba, 0x1f, 0xa1, 0x87, 0xd6, 0x65, 0x09, 0xa3, 0x92,
+	0xe3, 0xe4, 0x65, 0x33, 0xbf, 0x6b, 0x3e, 0x4f, 0xed, 0xd7, 0xca, 0xd6, 0x3e, 0x6a, 0x33, 0x9e,
+	0xe4, 0x20, 0x24, 0xd7, 0x07, 0x6e, 0x8e, 0x74, 0x0f, 0x73, 0x3f, 0x43, 0x8d, 0x44, 0x2b, 0xea,
+	0x9e, 0xf6, 0x4f, 0x06, 0xad, 0x71, 0x27, 0x30, 0x2f, 0x56, 0x50, 0xbd, 0x58, 0xc1, 0x15, 0xdd,
+	0x4c, 0x1e, 0xfc, 0xf9, 0xeb, 0xe5, 0xdb, 0x7b, 0x1d, 0x84, 0x36, 0xcd, 0xff, 0xdd, 0x41, 0x8f,
+	0xaf, 0x45, 0x66, 0x06, 0x39, 0xaf, 0xdc, 0x32, 0x2f, 0xe3, 0x82, 0x08, 0x41, 0x18, 0x7d, 0x85,
+	0x31, 0x3e, 0x31, 0x5e, 0x8b, 0xe4, 0x66, 0x65, 0x46, 0x77, 0x36, 0xf6, 0x0e, 0xdb, 0x42, 0xed,
+	0x79, 0xb3, 0x59, 0x41, 0xf8, 0x96, 0xb0, 0xab, 0x7b, 0x35, 0x76, 0x89, 0xdc, 0xbd, 0x27, 0xf9,
+	0xee, 0x13, 0x57, 0x8f, 0xbe, 0xd6, 0x3b, 0xf9, 0xea, 0xf9, 0xd6, 0x73, 0x5e, 0x6c, 0x3d, 0xe7,
+	0x9f, 0xad, 0xe7, 0xfc, 0x72, 0xeb, 0x1d, 0xbd, 0xb8, 0xf5, 0x8e, 0xfe, 0xba, 0xf5, 0x8e, 0xbe,
+	0x1b, 0x65, 0x44, 0xe6, 0x65, 0x1c, 0x24, 0xac, 0x18, 0xe2, 0xa5, 0xcc, 0x01, 0x5f, 0x52, 0x90,
+	0xf6, 0xf5, 0xb7, 0xbf, 0x82, 0x9f, 0x6c, 0xa8, 0xba, 0x11, 0x71, 0x43, 0xcf, 0xee, 0xc3, 0x7f,
+	0x03, 0x00, 0x00, 0xff, 0xff, 0x78, 0xf6, 0x62, 0xd8, 0xbe, 0x06, 0x00, 0x00,
 }
+
+func (m *MsgValsetConfirm) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgValsetConfirm) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgValsetConfirm) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Signature) > 0 {
+		i -= len(m.Signature)
+		copy(dAtA[i:], m.Signature)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.Signature)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.EthAddress) > 0 {
+		i -= len(m.EthAddress)
+		copy(dAtA[i:], m.EthAddress)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.EthAddress)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.Validator) > 0 {
+		i -= len(m.Validator)
+		copy(dAtA[i:], m.Validator)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.Validator)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Nonce != 0 {
+		i = encodeVarintMsgs(dAtA, i, uint64(m.Nonce))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgValsetRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgValsetRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgValsetRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Requester) > 0 {
+		i -= len(m.Requester)
+		copy(dAtA[i:], m.Requester)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.Requester)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgSetEthAddress) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgSetEthAddress) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgSetEthAddress) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Signature) > 0 {
+		i -= len(m.Signature)
+		copy(dAtA[i:], m.Signature)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.Signature)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.Validator) > 0 {
+		i -= len(m.Validator)
+		copy(dAtA[i:], m.Validator)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.Validator)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Address) > 0 {
+		i -= len(m.Address)
+		copy(dAtA[i:], m.Address)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.Address)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgSendToEth) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgSendToEth) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgSendToEth) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	{
+		size, err := m.BridgeFee.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintMsgs(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x22
+	{
+		size, err := m.Amount.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintMsgs(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x1a
+	if len(m.DestAddress) > 0 {
+		i -= len(m.DestAddress)
+		copy(dAtA[i:], m.DestAddress)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.DestAddress)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Sender) > 0 {
+		i -= len(m.Sender)
+		copy(dAtA[i:], m.Sender)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.Sender)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgRequestBatch) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgRequestBatch) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgRequestBatch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Denom) > 0 {
+		i -= len(m.Denom)
+		copy(dAtA[i:], m.Denom)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.Denom)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Requester) > 0 {
+		i -= len(m.Requester)
+		copy(dAtA[i:], m.Requester)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.Requester)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgConfirmBatch) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgConfirmBatch) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgConfirmBatch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Signature) > 0 {
+		i -= len(m.Signature)
+		copy(dAtA[i:], m.Signature)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.Signature)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.Validator) > 0 {
+		i -= len(m.Validator)
+		copy(dAtA[i:], m.Validator)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.Validator)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Nonce != 0 {
+		i = encodeVarintMsgs(dAtA, i, uint64(m.Nonce))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *EthereumBridgeDepositClaim) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EthereumBridgeDepositClaim) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EthereumBridgeDepositClaim) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.CosmosReceiver) > 0 {
+		i -= len(m.CosmosReceiver)
+		copy(dAtA[i:], m.CosmosReceiver)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.CosmosReceiver)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.EthereumSender) > 0 {
+		i -= len(m.EthereumSender)
+		copy(dAtA[i:], m.EthereumSender)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.EthereumSender)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.Erc20Token != nil {
+		{
+			size, err := m.Erc20Token.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintMsgs(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Nonce != 0 {
+		i = encodeVarintMsgs(dAtA, i, uint64(m.Nonce))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *EthereumBridgeWithdrawalBatchClaim) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EthereumBridgeWithdrawalBatchClaim) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EthereumBridgeWithdrawalBatchClaim) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.BatchNonce != 0 {
+		i = encodeVarintMsgs(dAtA, i, uint64(m.BatchNonce))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.EventNonce != 0 {
+		i = encodeVarintMsgs(dAtA, i, uint64(m.EventNonce))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgCreateEthereumClaims) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgCreateEthereumClaims) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgCreateEthereumClaims) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Claims) > 0 {
+		for iNdEx := len(m.Claims) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Claims[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintMsgs(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x22
+		}
+	}
+	if len(m.Orchestrator) > 0 {
+		i -= len(m.Orchestrator)
+		copy(dAtA[i:], m.Orchestrator)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.Orchestrator)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.BridgeContractAddress) > 0 {
+		i -= len(m.BridgeContractAddress)
+		copy(dAtA[i:], m.BridgeContractAddress)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.BridgeContractAddress)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.EthereumChainId != 0 {
+		i = encodeVarintMsgs(dAtA, i, uint64(m.EthereumChainId))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgBridgeSignatureSubmission) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgBridgeSignatureSubmission) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgBridgeSignatureSubmission) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.EthereumSignature) > 0 {
+		i -= len(m.EthereumSignature)
+		copy(dAtA[i:], m.EthereumSignature)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.EthereumSignature)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.Orchestrator) > 0 {
+		i -= len(m.Orchestrator)
+		copy(dAtA[i:], m.Orchestrator)
+		i = encodeVarintMsgs(dAtA, i, uint64(len(m.Orchestrator)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.SignType != 0 {
+		i = encodeVarintMsgs(dAtA, i, uint64(m.SignType))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.Nonce != 0 {
+		i = encodeVarintMsgs(dAtA, i, uint64(m.Nonce))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func encodeVarintMsgs(dAtA []byte, offset int, v uint64) int {
+	offset -= sovMsgs(v)
+	base := offset
+	for v >= 1<<7 {
+		dAtA[offset] = uint8(v&0x7f | 0x80)
+		v >>= 7
+		offset++
+	}
+	dAtA[offset] = uint8(v)
+	return base
+}
+func (m *MsgValsetConfirm) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Nonce != 0 {
+		n += 1 + sovMsgs(uint64(m.Nonce))
+	}
+	l = len(m.Validator)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	l = len(m.EthAddress)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	l = len(m.Signature)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgValsetRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Requester)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgSetEthAddress) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Address)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	l = len(m.Validator)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	l = len(m.Signature)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgSendToEth) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Sender)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	l = len(m.DestAddress)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	l = m.Amount.Size()
+	n += 1 + l + sovMsgs(uint64(l))
+	l = m.BridgeFee.Size()
+	n += 1 + l + sovMsgs(uint64(l))
+	return n
+}
+
+func (m *MsgRequestBatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Requester)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	l = len(m.Denom)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgConfirmBatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Nonce != 0 {
+		n += 1 + sovMsgs(uint64(m.Nonce))
+	}
+	l = len(m.Validator)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	l = len(m.Signature)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	return n
+}
+
+func (m *EthereumBridgeDepositClaim) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Nonce != 0 {
+		n += 1 + sovMsgs(uint64(m.Nonce))
+	}
+	if m.Erc20Token != nil {
+		l = m.Erc20Token.Size()
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	l = len(m.EthereumSender)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	l = len(m.CosmosReceiver)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	return n
+}
+
+func (m *EthereumBridgeWithdrawalBatchClaim) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.EventNonce != 0 {
+		n += 1 + sovMsgs(uint64(m.EventNonce))
+	}
+	if m.BatchNonce != 0 {
+		n += 1 + sovMsgs(uint64(m.BatchNonce))
+	}
+	return n
+}
+
+func (m *MsgCreateEthereumClaims) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.EthereumChainId != 0 {
+		n += 1 + sovMsgs(uint64(m.EthereumChainId))
+	}
+	l = len(m.BridgeContractAddress)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	l = len(m.Orchestrator)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	if len(m.Claims) > 0 {
+		for _, e := range m.Claims {
+			l = e.Size()
+			n += 1 + l + sovMsgs(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *MsgBridgeSignatureSubmission) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Nonce != 0 {
+		n += 1 + sovMsgs(uint64(m.Nonce))
+	}
+	if m.SignType != 0 {
+		n += 1 + sovMsgs(uint64(m.SignType))
+	}
+	l = len(m.Orchestrator)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	l = len(m.EthereumSignature)
+	if l > 0 {
+		n += 1 + l + sovMsgs(uint64(l))
+	}
+	return n
+}
+
+func sovMsgs(x uint64) (n int) {
+	return (math_bits.Len64(x|1) + 6) / 7
+}
+func sozMsgs(x uint64) (n int) {
+	return sovMsgs(uint64((x << 1) ^ uint64((int64(x) >> 63))))
+}
+func (m *MsgValsetConfirm) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMsgs
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgValsetConfirm: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgValsetConfirm: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Nonce", wireType)
+			}
+			m.Nonce = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Nonce |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Validator", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Validator = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field EthAddress", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.EthAddress = append(m.EthAddress[:0], dAtA[iNdEx:postIndex]...)
+			if m.EthAddress == nil {
+				m.EthAddress = []byte{}
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Signature", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Signature = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMsgs(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgValsetRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMsgs
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgValsetRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgValsetRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Requester", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Requester = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMsgs(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgSetEthAddress) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMsgs
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgSetEthAddress: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgSetEthAddress: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Address = append(m.Address[:0], dAtA[iNdEx:postIndex]...)
+			if m.Address == nil {
+				m.Address = []byte{}
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Validator", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Validator = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Signature", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Signature = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMsgs(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgSendToEth) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMsgs
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgSendToEth: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgSendToEth: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Sender", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Sender = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DestAddress", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DestAddress = append(m.DestAddress[:0], dAtA[iNdEx:postIndex]...)
+			if m.DestAddress == nil {
+				m.DestAddress = []byte{}
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Amount", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Amount.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BridgeFee", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.BridgeFee.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMsgs(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgRequestBatch) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMsgs
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgRequestBatch: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgRequestBatch: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Requester", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Requester = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Denom", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Denom = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMsgs(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgConfirmBatch) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMsgs
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgConfirmBatch: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgConfirmBatch: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Nonce", wireType)
+			}
+			m.Nonce = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Nonce |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Validator", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Validator = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Signature", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Signature = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMsgs(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EthereumBridgeDepositClaim) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMsgs
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: EthereumBridgeDepositClaim: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: EthereumBridgeDepositClaim: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Nonce", wireType)
+			}
+			m.Nonce = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Nonce |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Erc20Token", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Erc20Token == nil {
+				m.Erc20Token = &ERC20Token{}
+			}
+			if err := m.Erc20Token.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field EthereumSender", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.EthereumSender = append(m.EthereumSender[:0], dAtA[iNdEx:postIndex]...)
+			if m.EthereumSender == nil {
+				m.EthereumSender = []byte{}
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CosmosReceiver", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.CosmosReceiver = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMsgs(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EthereumBridgeWithdrawalBatchClaim) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMsgs
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: EthereumBridgeWithdrawalBatchClaim: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: EthereumBridgeWithdrawalBatchClaim: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field EventNonce", wireType)
+			}
+			m.EventNonce = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.EventNonce |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BatchNonce", wireType)
+			}
+			m.BatchNonce = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.BatchNonce |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMsgs(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgCreateEthereumClaims) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMsgs
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgCreateEthereumClaims: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgCreateEthereumClaims: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field EthereumChainId", wireType)
+			}
+			m.EthereumChainId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.EthereumChainId |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BridgeContractAddress", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.BridgeContractAddress = append(m.BridgeContractAddress[:0], dAtA[iNdEx:postIndex]...)
+			if m.BridgeContractAddress == nil {
+				m.BridgeContractAddress = []byte{}
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Orchestrator", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Orchestrator = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Claims", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Claims = append(m.Claims, &types1.Any{})
+			if err := m.Claims[len(m.Claims)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMsgs(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgBridgeSignatureSubmission) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMsgs
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgBridgeSignatureSubmission: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgBridgeSignatureSubmission: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Nonce", wireType)
+			}
+			m.Nonce = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Nonce |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SignType", wireType)
+			}
+			m.SignType = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.SignType |= SignType(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Orchestrator", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Orchestrator = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field EthereumSignature", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.EthereumSignature = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMsgs(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMsgs
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func skipMsgs(dAtA []byte) (n int, err error) {
+	l := len(dAtA)
+	iNdEx := 0
+	depth := 0
+	for iNdEx < l {
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return 0, ErrIntOverflowMsgs
+			}
+			if iNdEx >= l {
+				return 0, io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		wireType := int(wire & 0x7)
+		switch wireType {
+		case 0:
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return 0, ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return 0, io.ErrUnexpectedEOF
+				}
+				iNdEx++
+				if dAtA[iNdEx-1] < 0x80 {
+					break
+				}
+			}
+		case 1:
+			iNdEx += 8
+		case 2:
+			var length int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return 0, ErrIntOverflowMsgs
+				}
+				if iNdEx >= l {
+					return 0, io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				length |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if length < 0 {
+				return 0, ErrInvalidLengthMsgs
+			}
+			iNdEx += length
+		case 3:
+			depth++
+		case 4:
+			if depth == 0 {
+				return 0, ErrUnexpectedEndOfGroupMsgs
+			}
+			depth--
+		case 5:
+			iNdEx += 4
+		default:
+			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
+		}
+		if iNdEx < 0 {
+			return 0, ErrInvalidLengthMsgs
+		}
+		if depth == 0 {
+			return iNdEx, nil
+		}
+	}
+	return 0, io.ErrUnexpectedEOF
+}
+
+var (
+	ErrInvalidLengthMsgs        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrIntOverflowMsgs          = fmt.Errorf("proto: integer overflow")
+	ErrUnexpectedEndOfGroupMsgs = fmt.Errorf("proto: unexpected end of group")
+)

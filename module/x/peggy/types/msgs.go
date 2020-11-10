@@ -325,6 +325,7 @@ func (msg MsgConfirmBatch) GetSigners() []sdk.AccAddress {
 	return []sdk.AccAddress{msg.Orchestrator}
 }
 
+// TODO: register in codec to decode the following claim types
 type EthereumClaim interface {
 	GetEventNonce() UInt64Nonce
 	GetType() ClaimType
