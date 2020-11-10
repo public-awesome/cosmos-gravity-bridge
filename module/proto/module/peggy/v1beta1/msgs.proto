@@ -110,10 +110,6 @@ message MsgConfirmBatch {
 
 // EthereumBridgeDepositClaim claims that a token was deposited on the bridge contract.
 message EthereumBridgeDepositClaim {
-    option (gogoproto.marshaler)   = false;
-    option (gogoproto.sizer)       = false;
-    option (gogoproto.unmarshaler) = false;
-    
     uint64     nonce           = 1;
     ERC20Token erc20_token     = 2;
     bytes      ethereum_sender = 3;

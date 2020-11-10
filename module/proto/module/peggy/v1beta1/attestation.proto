@@ -28,10 +28,6 @@ message Attestation {
 // WithdrawalBatch is an attestation detail that marks a batch of outgoing transactions executed and
 // frees earlier unexecuted batches
 message WithdrawalBatch {
-    option (gogoproto.marshaler)   = false;
-    option (gogoproto.sizer)       = false;
-    option (gogoproto.unmarshaler) = false;
-
     int64      batch_nonce  = 1;
     ERC20Token erc_20_token = 2;
 }
@@ -39,10 +35,6 @@ message WithdrawalBatch {
 
 // // BridgeDeposit is an attestation detail that adds vouchers to an account when executed
 message BridgeDeposit {
-    option (gogoproto.marshaler)   = false;
-    option (gogoproto.sizer)       = false;
-    option (gogoproto.unmarshaler) = false;
-
     ERC20Token erc_20_token    = 1;
     bytes      ethereum_sender = 2;
     string     cosmos_receiver = 3; 
@@ -50,11 +42,6 @@ message BridgeDeposit {
 
 // ERC20Token unique identifier for an Ethereum erc20 token.
 message ERC20Token {
-    option (gogoproto.marshaler)   = false;
-    option (gogoproto.sizer)       = false;
-    option (gogoproto.unmarshaler) = false;
-
-    // option (gogoproto.sizer)      = false;
     // NOTE: i've migrated this to use sdk.Int as per the discussion earlier
     // TODO: fix the sdk.Int generated code here
     string amount                 = 1 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Int", (gogoproto.nullable) = false];
