@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -10,13 +9,11 @@ import (
 	"github.com/althea-net/peggy/module/x/peggy/keeper"
 	"github.com/althea-net/peggy/module/x/peggy/types"
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/client/context"
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/cosmos/cosmos-sdk/x/auth"
-	"github.com/cosmos/cosmos-sdk/x/auth/client/utils"
 	ethCrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 )
@@ -57,87 +54,16 @@ func GetApprovedCmd(storeKey string, cdc *codec.Codec) *cobra.Command {
 	return testingTxCmd
 }
 
-// func CmdSendETHBootstrapRequest(cdc *codec.Codec) *cobra.Command {
-// 	return &cobra.Command{
-// 		Use:   "bootstrap [eth chain id] [eth contract address] [block] [allowed_validators] [validator_powers] [peggy_id] [start_threshold]",
-// 		Short: "Submit a claim that the bridge contract bootstrap was completed on the Ethereum side",
-// 		Args:  cobra.ExactArgs(7),
-// 		RunE: func(cmd *cobra.Command, args []string) error {
-// 			cliCtx := context.NewCLIContext().WithCodec(cdc)
-// 			inBuf := bufio.NewReader(cmd.InOrStdin())
-// 			txBldr := auth.NewTxBuilderFromCLI(inBuf).WithTxEncoder(utils.GetTxEncoder(cdc))
-// 			cosmosAddr := cliCtx.GetFromAddress()
-
-// 			ethChainID, err := strconv.ParseUint(args[0], 10, 64)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			ethContractAddress := args[1]
-// 			block, err := strconv.ParseUint(args[2], 10, 64)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			var validators []types.EthereumAddress
-// 			var powers []uint64
-// 			for _, v := range strings.Split(args[3], ",") {
-// 				validators = append(validators, types.NewEthereumAddress(v))
-// 			}
-// 			for _, v := range strings.Split(args[4], ",") {
-// 				p, err := strconv.ParseUint(v, 10, 64)
-// 				if err != nil {
-// 					return sdkerrors.Wrap(err, "power")
-// 				}
-// 				powers = append(powers, p)
-// 			}
-
-// 			if len(validators) != len(powers) {
-// 				return errors.New("not equal elements in validators and power")
-// 			}
-// 			bridgeValidators := make(types.BridgeValidators, len(validators))
-// 			for i := range validators {
-// 				bridgeValidators[i] = types.BridgeValidator{
-// 					Power:           powers[i],
-// 					EthereumAddress: validators[i],
-// 				}
-// 			}
-
-// 			startThreshold, err := strconv.ParseUint(args[6], 10, 64)
-// 			if err != nil {
-// 				return sdkerrors.Wrap(err, "start threshold")
-// 			}
-
-// 			// Make the message
-// 			msg := types.MsgCreateEthereumClaims{
-// 				EthereumChainID:       ethChainID,
-// 				BridgeContractAddress: types.NewEthereumAddress(ethContractAddress),
-// 				Orchestrator:          cosmosAddr,
-// 				Claims: []types.EthereumClaim{
-// 					types.EthereumBridgeBootstrappedClaim{
-// 						Nonce:            1, // hard coded in ETH contract
-// 						Block:            block,
-// 						BridgeValidators: bridgeValidators,
-// 						PeggyID:          args[5], // simplest solution without decoding
-// 						StartThreshold:   startThreshold,
-// 					},
-// 				},
-// 			}
-// 			if err := msg.ValidateBasic(); err != nil {
-// 				return err
-// 			}
-// 			return utils.GenerateOrBroadcastMsgs(cliCtx, txBldr, []sdk.Msg{msg})
-// 		},
-// 	}
-// }
-
 func CmdSendETHDepositRequest(cdc *codec.Codec) *cobra.Command {
 	return &cobra.Command{
 		Use:   "deposit [eth chain id] [eth contract address] [nonce] [cosmos receiver] [amount] [eth erc20 symbol] [eth erc20 contract addr] [eth sender address]",
 		Short: "Submit a claim that a deposit was made on the Ethereum side",
 		Args:  cobra.ExactArgs(8),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cliCtx := context.NewCLIContext().WithCodec(cdc)
-			inBuf := bufio.NewReader(cmd.InOrStdin())
-			txBldr := auth.NewTxBuilderFromCLI(inBuf).WithTxEncoder(utils.GetTxEncoder(cdc))
+			cliCtx, err := client.GetClientContextFromCmd(cmd).ReadTxCommandFlags(clientCtx, cmd.Flags())
+			if err != nil {
+				return err
+			}
 			cosmosAddr := cliCtx.GetFromAddress()
 
 			ethChainID, err := strconv.ParseUint(args[0], 10, 64)
@@ -178,7 +104,7 @@ func CmdSendETHDepositRequest(cdc *codec.Codec) *cobra.Command {
 			if err := msg.ValidateBasic(); err != nil {
 				return err
 			}
-			return utils.GenerateOrBroadcastMsgs(cliCtx, txBldr, []sdk.Msg{msg})
+			return tx.GenerateOrBroadcastTxCLI(cliCtx, cmd.Flags(), msg)
 		},
 	}
 }
@@ -189,9 +115,10 @@ func CmdSendETHWithdrawalRequest(cdc *codec.Codec) *cobra.Command {
 		Short: "Submit a claim that a withdrawal was executed on the Ethereum side",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cliCtx := context.NewCLIContext().WithCodec(cdc)
-			inBuf := bufio.NewReader(cmd.InOrStdin())
-			txBldr := auth.NewTxBuilderFromCLI(inBuf).WithTxEncoder(utils.GetTxEncoder(cdc))
+			cliCtx, err := client.GetClientContextFromCmd(cmd).ReadTxCommandFlags(clientCtx, cmd.Flags())
+			if err != nil {
+				return err
+			}
 			cosmosAddr := cliCtx.GetFromAddress()
 
 			ethChainID, err := strconv.ParseUint(args[0], 10, 64)
@@ -218,48 +145,10 @@ func CmdSendETHWithdrawalRequest(cdc *codec.Codec) *cobra.Command {
 			if err := msg.ValidateBasic(); err != nil {
 				return err
 			}
-			return utils.GenerateOrBroadcastMsgs(cliCtx, txBldr, []sdk.Msg{msg})
+			return tx.GenerateOrBroadcastTxCLI(cliCtx, cmd.Flags(), msg)
 		},
 	}
 }
-
-// func CmdSendETHMultiSigRequest(cdc *codec.Codec) *cobra.Command {
-// 	return &cobra.Command{
-// 		Use:   "multisig-update [eth chain id] [eth contract address] [nonce]",
-// 		Short: "Submit a claim that the 'multisig set' update was executed on the Ethereum side",
-// 		Args:  cobra.ExactArgs(3),
-// 		RunE: func(cmd *cobra.Command, args []string) error {
-// 			cliCtx := context.NewCLIContext().WithCodec(cdc)
-// 			inBuf := bufio.NewReader(cmd.InOrStdin())
-// 			txBldr := auth.NewTxBuilderFromCLI(inBuf).WithTxEncoder(utils.GetTxEncoder(cdc))
-// 			cosmosAddr := cliCtx.GetFromAddress()
-
-// 			ethChainID, err := strconv.ParseUint(args[0], 10, 64)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			ethContractAddress := types.NewEthereumAddress(args[1])
-// 			nonce, err := parseNonce(args[2])
-// 			if err != nil {
-// 				return err
-// 			}
-// 			msg := types.MsgCreateEthereumClaims{
-// 				EthereumChainID:       ethChainID,
-// 				BridgeContractAddress: ethContractAddress,
-// 				Orchestrator:          cosmosAddr,
-// 				Claims: []types.EthereumClaim{
-// 					types.EthereumBridgeMultiSigUpdateClaim{
-// 						Nonce: nonce,
-// 					},
-// 				},
-// 			}
-// 			if err := msg.ValidateBasic(); err != nil {
-// 				return err
-// 			}
-// 			return utils.GenerateOrBroadcastMsgs(cliCtx, txBldr, []sdk.Msg{msg})
-// 		},
-// 	}
-// }
 
 func CmdValsetConfirm(storeKey string, cdc *codec.Codec) *cobra.Command {
 	return &cobra.Command{
@@ -267,9 +156,10 @@ func CmdValsetConfirm(storeKey string, cdc *codec.Codec) *cobra.Command {
 		Short: "Sign a `multisig set` update for given nonce with the Ethereum key and submit to cosmos side",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cliCtx := context.NewCLIContext().WithCodec(cdc)
-			inBuf := bufio.NewReader(cmd.InOrStdin())
-			txBldr := auth.NewTxBuilderFromCLI(inBuf).WithTxEncoder(utils.GetTxEncoder(cdc))
+			cliCtx, err := client.GetClientContextFromCmd(cmd).ReadTxCommandFlags(clientCtx, cmd.Flags())
+			if err != nil {
+				return err
+			}
 
 			// Make Eth Signature over valset
 			privKeyString := args[1][2:]
@@ -308,7 +198,7 @@ func CmdValsetConfirm(storeKey string, cdc *codec.Codec) *cobra.Command {
 				return err
 			}
 			// Send it
-			return utils.GenerateOrBroadcastMsgs(cliCtx, txBldr, []sdk.Msg{msg})
+			return tx.GenerateOrBroadcastTxCLI(cliCtx, cmd.Flags(), msg)
 		},
 	}
 }
@@ -319,9 +209,10 @@ func CmdOutgointTXBatchConfirm(storeKey string, cdc *codec.Codec) *cobra.Command
 		Short: "Sign a `outgoing TX` batch for given nonce with the Ethereum key and submit to cosmos side",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cliCtx := context.NewCLIContext().WithCodec(cdc)
-			inBuf := bufio.NewReader(cmd.InOrStdin())
-			txBldr := auth.NewTxBuilderFromCLI(inBuf).WithTxEncoder(utils.GetTxEncoder(cdc))
+			cliCtx, err := client.GetClientContextFromCmd(cmd).ReadTxCommandFlags(clientCtx, cmd.Flags())
+			if err != nil {
+				return err
+			}
 
 			// Make Eth Signature over valset
 			privKeyString := args[1][2:]
@@ -374,7 +265,7 @@ func CmdOutgointTXBatchConfirm(storeKey string, cdc *codec.Codec) *cobra.Command
 				return err
 			}
 			// Send it
-			return utils.GenerateOrBroadcastMsgs(cliCtx, txBldr, []sdk.Msg{msg})
+			return tx.GenerateOrBroadcastTxCLI(cliCtx, cmd.Flags(), msg)
 		},
 	}
 }

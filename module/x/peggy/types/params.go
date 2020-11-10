@@ -9,7 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/x/params"
-	"github.com/cosmos/cosmos-sdk/x/params/subspace"
+	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 )
 
 // DefaultParamspace defines the default auth module parameter subspace
@@ -35,7 +35,7 @@ var (
 	ParamsStoreKeyBridgeContractChainID = []byte("BridgeChainID")
 )
 
-var _ subspace.ParamSet = &Params{}
+var _ paramtypes.ParamSet = &Params{}
 
 type Params struct {
 	// PeggyID is a random 32 byte value to prevent signature reuse
@@ -53,15 +53,15 @@ type Params struct {
 }
 
 // ParamKeyTable for auth module
-func ParamKeyTable() subspace.KeyTable {
-	return subspace.NewKeyTable().RegisterParamSet(&Params{})
+func ParamKeyTable() paramtypes.KeyTable {
+	return paramtypes.NewKeyTable().RegisterParamSet(&Params{})
 }
 
 // ParamSetPairs implements the ParamSet interface and returns all the key/value pairs
 // pairs of auth module's parameters.
 // nolint
-func (p *Params) ParamSetPairs() subspace.ParamSetPairs {
-	return subspace.ParamSetPairs{
+func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
+	return paramtypes.ParamSetPairs{
 		params.NewParamSetPair(ParamsStoreKeyPeggyID, &p.PeggyID, validatePeggyID),
 		params.NewParamSetPair(ParamsStoreKeyContractHash, &p.ContractHash, validateContractHash),
 		params.NewParamSetPair(ParamsStoreKeyStartThreshold, &p.StartThreshold, validateStartThreshold),

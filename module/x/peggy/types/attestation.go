@@ -10,14 +10,6 @@ import (
 )
 
 // ClaimType is the cosmos type of an event from the counterpart chain that can be handled
-type ClaimType byte
-
-const (
-	ClaimTypeUnknown                       ClaimType = 0
-	ClaimTypeEthereumBridgeDeposit         ClaimType = 1
-	ClaimTypeEthereumBridgeWithdrawalBatch ClaimType = 2
-)
-
 var claimTypeToNames = map[ClaimType]string{
 	ClaimTypeEthereumBridgeDeposit:         "bridge_deposit",
 	ClaimTypeEthereumBridgeWithdrawalBatch: "bridge_withdrawal_batch",
