@@ -1,4 +1,4 @@
-use clarity::Address as EthAddress;
+use clarity::{abi::encode_call, Address as EthAddress, Uint256};
 use clarity::{PrivateKey as EthPrivateKey, Transaction};
 use contact::client::Contact;
 use deep_space::address::Address as CosmosAddress;
@@ -21,8 +21,8 @@ use crate::TOTAL_TIMEOUT;
 pub async fn send_eth_to_orchestrators(keys: &[(CosmosPrivateKey, EthPrivateKey)], web30: &Web3) {
     let balance = web30.eth_get_balance(*MINER_ADDRESS).await.unwrap();
     info!(
-        "Sending orchestrators 1 eth to pay for fees miner has {} WEI",
-        balance
+        "Sending orchestrators 1 eth to pay for fees miner has {} ETH",
+        balance / 1_000_000_000_000_000_000u128.into()
     );
     let mut eth_addresses = Vec::new();
     for (_, e_key) in keys {
@@ -93,4 +93,89 @@ pub async fn check_cosmos_balance(
         }
     }
     None
+}
+
+/// This function efficiently distributes ERC20 tokens to a large number of provided Ethereum addresses
+/// the real problem here is that you can't do more than one send operation at a time from a
+/// single address without your sequence getting out of whack. By manually generating the transactions
+/// here we can send an arbitrary number of transactions in only a couple of Ethereum blocks
+pub async fn send_erc20_bulk(
+    amount: Uint256,
+    erc20: EthAddress,
+    destinations: &[EthAddress],
+    web3: &Web3,
+) {
+    let net_version = web3.net_version().await.unwrap();
+    let mut nonce = web3
+        .eth_get_transaction_count(*MINER_ADDRESS)
+        .await
+        .unwrap();
+    let mut transactions = Vec::new();
+    for address in destinations {
+        let t = Transaction {
+            to: erc20,
+            nonce: nonce.clone(),
+            gas_price: 1_000_000_000u64.into(),
+            gas_limit: 40000u64.into(),
+            value: 0u8.into(),
+            data: encode_call(
+                "transfer(address,uint256)",
+                &[address.into(), amount.clone().into()],
+            )
+            .unwrap(),
+            signature: None,
+        };
+        let t = t.sign(&*MINER_PRIVATE_KEY, Some(net_version));
+        transactions.push(t);
+        nonce += 1u64.into();
+    }
+    let mut sends = Vec::new();
+    for tx in transactions {
+        sends.push(web3.eth_send_raw_transaction(tx.to_bytes().unwrap()));
+    }
+    let txids = join_all(sends).await;
+    let mut wait_for_txid = Vec::new();
+    for txid in txids {
+        let wait = web3.wait_for_transaction(txid.unwrap(), TOTAL_TIMEOUT, None);
+        wait_for_txid.push(wait);
+    }
+    join_all(wait_for_txid).await;
+}
+
+/// This function efficiently distributes ETH to a large number of provided Ethereum addresses
+/// the real problem here is that you can't do more than one send operation at a time from a
+/// single address without your sequence getting out of whack. By manually generating the transactions
+/// here we can send an arbitrary number of transactions in only a couple of Ethereum blocks
+pub async fn send_eth_bulk(amount: Uint256, destinations: &[EthAddress], web3: &Web3) {
+    let net_version = web3.net_version().await.unwrap();
+    let mut nonce = web3
+        .eth_get_transaction_count(*MINER_ADDRESS)
+        .await
+        .unwrap();
+    let mut transactions = Vec::new();
+    for address in destinations {
+        let t = Transaction {
+            to: *address,
+            nonce: nonce.clone(),
+            gas_price: 1_000_000_000u64.into(),
+            gas_limit: 24000u64.into(),
+            value: amount.clone(),
+            data: Vec::new(),
+            signature: None,
+        };
+        let t = t.sign(&*MINER_PRIVATE_KEY, Some(net_version));
+        transactions.push(t);
+        nonce += 1u64.into();
+    }
+    let mut sends = Vec::new();
+    for tx in transactions {
+        sends.push(web3.eth_send_raw_transaction(tx.to_bytes().unwrap()));
+    }
+    let txids = join_all(sends).await;
+    let mut wait_for_txid = Vec::new();
+    for txid in txids {
+        let wait = web3.wait_for_transaction(txid.unwrap(), TOTAL_TIMEOUT, None);
+        wait_for_txid.push(wait);
+    }
+    join_all(wait_for_txid).await;
 }

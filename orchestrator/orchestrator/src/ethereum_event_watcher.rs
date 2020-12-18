@@ -23,6 +23,7 @@ pub async fn check_for_events(
     fee: Coin,
     starting_block: Uint256,
 ) -> Result<Uint256, PeggyError> {
+    info!("Looking for Ethereum events!");
     let our_cosmos_address = our_private_key.to_public_key().unwrap().to_address();
     let latest_block = web3.eth_block_number().await?;
 
@@ -34,7 +35,7 @@ pub async fn check_for_events(
             vec!["SendToCosmosEvent(address,address,bytes32,uint256,uint256)"],
         )
         .await;
-    trace!("Deposits {:?}", deposits);
+    info!("Deposits {:?}", deposits);
 
     let batches = web3
         .check_for_events(
@@ -44,7 +45,7 @@ pub async fn check_for_events(
             vec!["TransactionBatchExecutedEvent(uint256,address,uint256)"],
         )
         .await;
-    trace!("Batches {:?}", batches);
+    info!("Batches {:?}", batches);
 
     let valsets = web3
         .check_for_events(
@@ -54,7 +55,7 @@ pub async fn check_for_events(
             vec!["ValsetUpdatedEvent(uint256,address[],uint256[])"],
         )
         .await;
-    trace!("Valsets {:?}", valsets);
+    info!("Valsets {:?}", valsets);
 
     if let (Ok(valsets), Ok(batches), Ok(deposits)) = (valsets, batches, deposits) {
         let valsets = ValsetUpdatedEvent::from_logs(&valsets)?;

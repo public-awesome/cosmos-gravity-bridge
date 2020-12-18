@@ -23,6 +23,7 @@ pub enum PeggyError {
     TimeoutError,
     InvalidEventLogError(String),
     CosmosgRPCError(Status),
+    InvalidTransactionOptions(String),
 }
 
 impl fmt::Display for PeggyError {
@@ -40,6 +41,7 @@ impl fmt::Display for PeggyError {
             PeggyError::TimeoutError => write!(f, "Operation timed out!"),
             PeggyError::ClarityError(val) => write!(f, "Clarity Error {}", val),
             PeggyError::InvalidEventLogError(val) => write!(f, "InvalidEvent: {}", val),
+            PeggyError::InvalidTransactionOptions(val) => write!(f, "Invalid Tx options: {}", val),
             PeggyError::EthereumContractError(val) => {
                 write!(f, "Contract operation failed: {}", val)
             }

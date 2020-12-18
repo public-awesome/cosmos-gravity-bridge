@@ -24,20 +24,36 @@ pub async fn send_to_cosmos(
     options: Vec<SendTxOption>,
 ) -> Result<Uint256, PeggyError> {
     let sender_address = sender_secret.to_public_key()?;
+    let mut approve_nonce = None;
     let approved = web3
         .check_erc20_approved(erc20, sender_address, peggy_contract)
         .await?;
+
+    for option in options.iter() {
+        if let SendTxOption::Nonce(_) = option {
+            return Err(PeggyError::InvalidTransactionOptions(
+                "This function may send more than one tx, SendTxOption::None() is not supported"
+                    .to_string(),
+            ));
+        }
+    }
+
     if !approved {
+        let mut options = options.clone();
+        let nonce = web3.eth_get_transaction_count(sender_address).await?;
+        options.push(SendTxOption::Nonce(nonce.clone()));
+        approve_nonce = Some(nonce);
+
         let txid = web3
-            .approve_erc20_transfers(erc20, sender_secret, peggy_contract, None, options.clone())
+            .approve_erc20_transfers(erc20, sender_secret, peggy_contract, None, options)
             .await?;
-        info!(
+        trace!(
             "We are not approved for ERC20 transfers, approving txid: {:#066x}",
             txid
         );
         if let Some(timeout) = wait_timeout {
             web3.wait_for_transaction(txid, timeout, None).await?;
-            info!("Approval finished!")
+            trace!("Approval finished!")
         }
     }
 
@@ -53,6 +69,12 @@ pub async fn send_to_cosmos(
     }
     if !has_gas_limit {
         options.push(SendTxOption::GasLimit(SEND_TO_COSMOS_GAS_LIMIT.into()));
+    }
+    // if we sent an approve tx it may not be in the chain yet, we should send
+    // our transaction with an incremented nonce to ensure that both can enter
+    // the chain in proper sequence
+    if let Some(n) = approve_nonce {
+        options.push(SendTxOption::Nonce(n + 1u8.into()));
     }
 
     // This code deals with some specifics of Ethereum byte encoding, Ethereum is BigEndian

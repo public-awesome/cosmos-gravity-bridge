@@ -725,9 +725,9 @@ dependencies = [
 
 [[package]]
 name = "deep_space"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce0687924101cae44696d1fdfb6f685e38def8536f15eac086c0ad7f384ee746"
+checksum = "afd044e670beb23ce6a2007d139ed3787b99c85b5ff3982b8fdfda66c3682e53"
 dependencies = [
  "base64 0.13.0",
  "bech32",
@@ -3182,9 +3182,9 @@ checksum = "7e7811dd7f9398f14cc76efd356f98f03aa30419dea46aa810d71e819fc97158"
 
 [[package]]
 name = "web30"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbde6a658b1200faa256876c5f99e8d9eba1aff22b0cc29359d35a6859c61ede"
+checksum = "e1492467879d37c07f4d94a2398a957693b1808e32eb077d6c64a3c2f720bcc7"
 dependencies = [
  "actix",
  "actix-web",
