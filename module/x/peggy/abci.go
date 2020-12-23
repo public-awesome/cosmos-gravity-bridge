@@ -54,6 +54,7 @@ func EndBlocker(ctx sdk.Context, k keeper.Keeper) {
 	// #2 condition
 	// We look through the full bonded set (not just the active set, include unbonding validators)
 	// and we slash users who haven't signed a batch confirmation that is >15hrs in blocks old
+	// TODO: we need to figure out timing here, maybe we perist the block height with OutgoingTxBatch?
 	// k.IterateOutgoingTXBatches()
 	// if there are batches older than 15h that are confirmed, prune them from state
 	// // k.IterateBatchConfirmByNonceAndTokenContract()

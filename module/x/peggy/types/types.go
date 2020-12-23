@@ -3,6 +3,7 @@ package types
 import (
 	"encoding/binary"
 	"fmt"
+	math "math"
 	"math/big"
 	"sort"
 	"strconv"
@@ -65,32 +66,30 @@ func (b BridgeValidators) Sort() {
 // PowerDiff returns the difference in power between two bridge validator sets
 // TODO: this needs to be potentially refactored
 func (b BridgeValidators) PowerDiff(c BridgeValidators) float64 {
-	powers := map[string]*big.Float{}
-	var totalB *big.Float
+	powers := map[string]int64{}
+	var totalB int64
 	// loop over b and initialize the map with their powers
 	for _, bv := range b {
-		pow := big.NewFloat(float64(bv.Power))
-		powers[bv.EthereumAddress] = pow
-		totalB.Add(totalB, pow)
+		powers[bv.EthereumAddress] = int64(bv.Power)
+		totalB += int64(bv.Power)
 	}
 
 	// subtract c powers from powers in the map, initializing
 	// uninitialized keys with negative numbers
 	for _, bv := range c {
 		if val, ok := powers[bv.EthereumAddress]; ok {
-			powers[bv.EthereumAddress] = val.Sub(val, big.NewFloat(float64(bv.Power)))
+			powers[bv.EthereumAddress] = val - int64(bv.Power)
 		} else {
-			powers[bv.EthereumAddress] = big.NewFloat(float64(bv.Power)).Neg()
+			powers[bv.EthereumAddress] = -int64(bv.Power)
 		}
 	}
 
-	var delta *big.Float
+	var delta int64
 	for _, v := range powers {
-		delta.Add(delta, v)
+		delta += v
 	}
 
-	out, _ := delta.Float64()
-	return out
+	return math.Abs(float64(delta) / float64(totalB))
 }
 
 // HasDuplicates returns true if there are duplicates in the set
