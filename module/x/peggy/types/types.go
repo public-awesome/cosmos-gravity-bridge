@@ -62,6 +62,37 @@ func (b BridgeValidators) Sort() {
 	})
 }
 
+// PowerDiff returns the difference in power between two bridge validator sets
+// TODO: this needs to be potentially refactored
+func (b BridgeValidators) PowerDiff(c BridgeValidators) float64 {
+	powers := map[string]*big.Float{}
+	var totalB *big.Float
+	// loop over b and initialize the map with their powers
+	for _, bv := range b {
+		pow := big.NewFloat(float64(bv.Power))
+		powers[bv.EthereumAddress] = pow
+		totalB.Add(totalB, pow)
+	}
+
+	// subtract c powers from powers in the map, initializing
+	// uninitialized keys with negative numbers
+	for _, bv := range c {
+		if val, ok := powers[bv.EthereumAddress]; ok {
+			powers[bv.EthereumAddress] = val.Sub(val, big.NewFloat(float64(bv.Power)))
+		} else {
+			powers[bv.EthereumAddress] = big.NewFloat(float64(bv.Power)).Neg()
+		}
+	}
+
+	var delta *big.Float
+	for _, v := range powers {
+		delta.Add(delta, v)
+	}
+
+	out, _ := delta.Float64()
+	return out
+}
+
 // HasDuplicates returns true if there are duplicates in the set
 func (b BridgeValidators) HasDuplicates() bool {
 	m := make(map[string]struct{}, len(b))
