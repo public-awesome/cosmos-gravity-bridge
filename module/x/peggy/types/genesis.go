@@ -93,7 +93,7 @@ func (p Params) ValidateBasic() error {
 	if err := validateSignedBlocksWindow(p.SignedBlocksWindow); err != nil {
 		return sdkerrors.Wrap(err, "signed blocks window")
 	}
-	if err := validateSlashFractionValset(p.SignedBlocksWindow); err != nil {
+	if err := validateSlashFractionValset(p.SlashFractionValset); err != nil {
 		return sdkerrors.Wrap(err, "slash fraction valset")
 	}
 	return nil
