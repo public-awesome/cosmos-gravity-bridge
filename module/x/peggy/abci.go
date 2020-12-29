@@ -1,8 +1,6 @@
 package peggy
 
 import (
-	"fmt"
-
 	"github.com/althea-net/peggy/module/x/peggy/keeper"
 	"github.com/althea-net/peggy/module/x/peggy/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -64,7 +62,6 @@ func EndBlocker(ctx sdk.Context, k keeper.Keeper) {
 		if uint64(ctx.BlockHeight())-params.SignedBlocksWindow > batch.Block {
 			var toSlash []stakingtypes.Validator
 			confirms := k.GetBatchConfirmByNonceAndTokenContract(ctx, batch.BatchNonce, batch.TokenContract)
-			fmt.Println(confirms)
 			for _, val := range currentBondedSet {
 				found := false
 				for _, conf := range confirms {
