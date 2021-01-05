@@ -87,9 +87,8 @@ contract Peggy {
 		bytes32 _r,
 		bytes32 _s
 	) private pure returns (bool) {
-		bytes32 messageDigest = keccak256(
-			abi.encodePacked("\x19Ethereum Signed Message:\n32", _theHash)
-		);
+		bytes32 messageDigest =
+			keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _theHash));
 		return _signer == ecrecover(messageDigest, _v, _r, _s);
 	}
 
@@ -110,9 +109,8 @@ contract Peggy {
 		// bytes32 encoding of the string "checkpoint"
 		bytes32 methodName = 0x636865636b706f696e7400000000000000000000000000000000000000000000;
 
-		bytes32 checkpoint = keccak256(
-			abi.encode(_peggyId, methodName, _valsetNonce, _validators, _powers)
-		);
+		bytes32 checkpoint =
+			keccak256(abi.encode(_peggyId, methodName, _valsetNonce, _validators, _powers));
 
 		return checkpoint;
 	}
@@ -210,12 +208,8 @@ contract Peggy {
 		);
 
 		// Check that enough current validators have signed off on the new validator set
-		bytes32 newCheckpoint = makeCheckpoint(
-			_newValidators,
-			_newPowers,
-			_newValsetNonce,
-			state_peggyId
-		);
+		bytes32 newCheckpoint =
+			makeCheckpoint(_newValidators, _newPowers, _newValsetNonce, state_peggyId);
 
 		checkValidatorSignatures(
 			_currentValidators,
@@ -240,6 +234,19 @@ contract Peggy {
 
 		emit ValsetUpdatedEvent(_newValsetNonce, _newValidators, _newPowers);
 	}
+
+	// Universal Batch design:
+	// - Remove per-tx fees array
+	// - Add feeTokenContract array containing contract addresses of the tokens fees will be paid in
+	// - Add feeAmounts array containing amounts of fees parallel to feeTokens array
+	// - Remove tokenContract var
+	// - Add tokenContracts array parallel to amounts (per-tx)
+	// - Add nonceKey argument which is used to look up the last nonce of a batch with the same nonceKey. This replaces the current
+	//   mapping of batch nonces, using an arbitrary value instead of the tokenContract var.
+	//
+	// In this new format, an existing single token batch would have one entry in the fees arrays
+	// It would have the same token contract address over and over again in the feeTokenContract array which can
+	// probably be compressed if it's worth it.
 
 	// submitBatch processes a batch of Cosmos -> Ethereum transactions by sending the tokens in the transactions
 	// to the destination addresses. It is approved by the current Cosmos validator set.
