@@ -17,7 +17,7 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
-func GetTxCmd(storeKey string) *cobra.Command {
+func GetTxCmd() *cobra.Command {
 	peggyTxCmd := &cobra.Command{
 		Use:                        types.ModuleName,
 		Short:                      "Peggy transaction subcommands",

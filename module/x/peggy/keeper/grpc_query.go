@@ -8,6 +8,11 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
+const (
+	maxResults                = 100 // todo: impl pagination
+	maxValsetRequestsReturned = 5
+)
+
 var _ types.QueryServer = Keeper{}
 
 // Params queries the params of the peggy module
@@ -107,7 +112,7 @@ func (k Keeper) OutgoingTxBatches(c context.Context, req *types.QueryOutgoingTxB
 	var batches []*types.OutgoingTxBatch
 	k.IterateOutgoingTXBatches(sdk.UnwrapSDKContext(c), func(_ []byte, batch *types.OutgoingTxBatch) bool {
 		batches = append(batches, batch)
-		return len(batches) == MaxResults
+		return len(batches) == maxResults
 	})
 	return &types.QueryOutgoingTxBatchesResponse{Batches: batches}, nil
 }
