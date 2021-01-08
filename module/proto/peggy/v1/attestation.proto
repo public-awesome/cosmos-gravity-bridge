@@ -1,6 +1,8 @@
 syntax = "proto3";
 package peggy.v1;
 
+// TODO-JT: add ERC20DeployedEvent claim
+
 import "gogoproto/gogo.proto";
 
 option go_package = "github.com/althea-net/peggy/module/x/peggy/types";

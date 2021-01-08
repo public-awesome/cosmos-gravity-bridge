@@ -67,6 +67,12 @@ var (
 
 	// KeyLastOutgoingBatchID indexes the lastBatchID
 	KeyLastOutgoingBatchID = append(SequenceKeyPrefix, []byte("lastBatchId")...)
+
+	// DenomToERC20Key prefixes the index of Cosmos originated asset denoms to ERC20s
+	DenomToERC20Key = []byte{0xf3}
+
+	// ERC20ToDenomKey prefixes the index of Cosmos originated assets ERC20s to denoms
+	ERC20ToDenomKey = []byte{0xf4}
 )
 
 // GetEthAddressKey returns the following key format
@@ -163,4 +169,12 @@ func GetFeeSecondIndexKey(fee sdk.Coin) []byte {
 // [0x0][cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn]
 func GetLastEventNonceByValidatorKey(validator sdk.ValAddress) []byte {
 	return append(LastEventNonceByValidatorKey, validator.Bytes()...)
+}
+
+func GetDenomToERC20Key(denom string) []byte {
+	return append(DenomToERC20Key, []byte(denom)...)
+}
+
+func GetERC20ToDenomKey(erc20 string) []byte {
+	return append(CosmosDenomToERC20Key, []byte(erc20)...)
 }

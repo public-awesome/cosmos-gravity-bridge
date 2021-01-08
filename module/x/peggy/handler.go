@@ -205,13 +205,14 @@ func handleMsgSendToEth(ctx sdk.Context, keeper keeper.Keeper, msg *types.MsgSen
 }
 
 func handleMsgRequestBatch(ctx sdk.Context, k keeper.Keeper, msg *types.MsgRequestBatch) (*sdk.Result, error) {
-	// ensure that peggy denom is valid
-	ec, err := types.ERC20FromPeggyCoin(sdk.NewInt64Coin(msg.Denom, 0))
+	// Check if the denom is a peggy coin, if not, check if there is a deployed ERC20 representing it.
+	// If not, error out
+	_, tokenContract, err := k.DenomToERC20(ctx, msg.Denom)
 	if err != nil {
-		return nil, sdkerrors.Wrapf(types.ErrInvalid, "invalid denom: %s", err)
+		return nil, err
 	}
 
-	batchID, err := k.BuildOutgoingTXBatch(ctx, ec.Contract, keeper.OutgoingTxBatchSize)
+	batchID, err := k.BuildOutgoingTXBatch(ctx, tokenContract, keeper.OutgoingTxBatchSize)
 	if err != nil {
 		return nil, err
 	}

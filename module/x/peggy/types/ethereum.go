@@ -54,7 +54,11 @@ func NewERC20Token(amount uint64, contract string) *ERC20Token {
 
 // PeggyCoin returns the peggy representation of the ERC20
 func (e *ERC20Token) PeggyCoin() sdk.Coin {
-	return sdk.NewCoin(fmt.Sprintf("%s/%s", PeggyDenomPrefix, e.Contract), e.Amount)
+	return sdk.NewCoin(PeggyDenom(e.Contract), e.Amount)
+}
+
+func PeggyDenom(tokenContract string) string {
+	return fmt.Sprintf("%s/%s", PeggyDenomPrefix, tokenContract)
 }
 
 // ValidateBasic permforms stateless validation
@@ -80,6 +84,7 @@ func (e *ERC20Token) Add(o *ERC20Token) *ERC20Token {
 }
 
 // ERC20FromPeggyCoin returns the ERC20 representation of a given peggy coin
+// TODO-JT: There might be some almost-dead code to eliminate around these 3 functions
 func ERC20FromPeggyCoin(v sdk.Coin) (*ERC20Token, error) {
 	contract, err := ValidatePeggyCoin(v)
 	if err != nil {
@@ -90,21 +95,25 @@ func ERC20FromPeggyCoin(v sdk.Coin) (*ERC20Token, error) {
 
 // ValidatePeggyCoin returns true if a coin is a peggy representation of an ERC20 token
 func ValidatePeggyCoin(v sdk.Coin) (string, error) {
-	spl := strings.Split(v.Denom, PeggyDenomSeperator)
+	return PeggyDenomToERC20(v.Denom)
+}
+
+func PeggyDenomToERC20(denom string) (string, error) {
+	spl := strings.Split(denom, PeggyDenomSeperator)
 	if len(spl) < 2 {
-		return "", fmt.Errorf("denom(%s) not valid, fewer seperators(%s) than expected", v.Denom, PeggyDenomSeperator)
+		return "", fmt.Errorf("denom(%s) not valid, fewer seperators(%s) than expected", denom, PeggyDenomSeperator)
 	}
 	contract := spl[1]
 	err := ValidateEthAddress(contract)
 	switch {
 	case len(spl) != 2:
-		return "", fmt.Errorf("denom(%s) not valid, more seperators(%s) than expected", v.Denom, PeggyDenomSeperator)
+		return "", fmt.Errorf("denom(%s) not valid, more seperators(%s) than expected", denom, PeggyDenomSeperator)
 	case spl[0] != PeggyDenomPrefix:
 		return "", fmt.Errorf("denom prefix(%s) not equal to expected(%s)", spl[0], PeggyDenomPrefix)
 	case err != nil:
 		return "", fmt.Errorf("error(%s) validating ethereum contract address", err)
-	case len(v.Denom) != PeggyDenomLen:
-		return "", fmt.Errorf("len(denom)(%d) not equal to PeggyDenomLen(%d)", len(v.Denom), PeggyDenomLen)
+	case len(denom) != PeggyDenomLen:
+		return "", fmt.Errorf("len(denom)(%d) not equal to PeggyDenomLen(%d)", len(denom), PeggyDenomLen)
 	default:
 		return contract, nil
 	}
