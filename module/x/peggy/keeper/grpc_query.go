@@ -9,8 +9,7 @@ import (
 )
 
 const (
-	maxResults                = 100 // todo: impl pagination
-	maxValsetRequestsReturned = 5
+	maxResults = 100 // todo: impl pagination
 )
 
 var _ types.QueryServer = Keeper{}
