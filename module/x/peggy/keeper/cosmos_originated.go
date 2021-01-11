@@ -7,6 +7,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+// TODO-JT: return string and boolean
 func (k Keeper) GetCosmosOriginatedDenom(ctx sdk.Context, tokenContract string) *string {
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get(types.GetERC20ToDenomKey(tokenContract))
@@ -40,8 +41,9 @@ func (k Keeper) setCosmosOriginatedDenomToERC20(ctx sdk.Context, denom string, t
 // This will return an error if it cant parse the denom as a peggy denom, and then also can't find the denom
 // in an index of ERC20 contracts deployed on Ethereum to serve as synthetic Cosmos assets.
 func (k Keeper) DenomToERC20(ctx sdk.Context, denom string) (bool, string, error) {
-	tc1, err := types.PeggyDenomToERC20(denom)
 	// First try parsing the ERC20 out of the denom
+	tc1, err := types.PeggyDenomToERC20(denom)
+
 	if err != nil {
 		// Look up ERC20 contract in index and error if it's not in there.
 		tc2 := k.GetCosmosOriginatedERC20(ctx, denom)
