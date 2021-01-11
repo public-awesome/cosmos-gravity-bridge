@@ -18,8 +18,8 @@ use orchestrator::main_loop::orchestrator_main_loop;
 use peggy_proto::peggy::query_client::QueryClient as PeggyQueryClient;
 use peggy_utils::types::SendToCosmosEvent;
 use rand::Rng;
-use std::time::Instant;
 use std::{process::Command, time::Duration};
+use std::{process::ExitStatus, time::Instant};
 use tokio::time::delay_for;
 use tonic::transport::Channel;
 use web30::client::Web3;
@@ -155,30 +155,42 @@ pub async fn test_valset_update(
     // percentage is too small.
     let mut rng = rand::thread_rng();
     let validator_to_change = rng.gen_range(0..keys.len());
+    let delegate_address = &keys[validator_to_change]
+        .0
+        .to_public_key()
+        .unwrap()
+        .to_address()
+        .to_bech32("cosmosvaloper")
+        .unwrap();
+    let amount = &format!("{}stake", STARTING_STAKE_PER_VALIDATOR / 8);
+    info!(
+        "Delegating {} to {} in order to generate a validator set update",
+        amount, delegate_address
+    );
     let output = Command::new("peggy")
         .args(&[
             "tx",
             "staking",
             "delegate",
-            "--home /validator1",
-            "--keyring-backend test",
-            "--yes",
-            "--from validator1",
             // target address
-            &keys[validator_to_change]
-                .0
-                .to_public_key()
-                .unwrap()
-                .to_bech32("cosmosvaloper")
-                .unwrap(),
+            delegate_address,
             // amount, this should be about 4% of the total power to start
-            &format!("{}stake", STARTING_STAKE_PER_VALIDATOR / 8),
+            amount,
+            "--home=/validator1",
+            // this is defined in /tests/container-scripts/setup-validator.sh
+            "--chain-id=peggy-test",
+            "--keyring-backend=test",
+            "--yes",
+            "--from=validator1",
         ])
         .current_dir("/")
         .output()
         .expect("Failed to update stake to trigger validator set change");
     info!("stdout: {}", String::from_utf8_lossy(&output.stdout));
     info!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+    if !ExitStatus::success(&output.status) {
+        panic!("Delegation failed!")
+    }
 
     let mut current_eth_valset_nonce = get_valset_nonce(peggy_address, *MINER_ADDRESS, &web30)
         .await
