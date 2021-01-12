@@ -18,7 +18,7 @@ func EndBlocker(ctx sdk.Context, k keeper.Keeper) {
 	}
 
 	for i, vs := range valsets {
-		signedWithinWindow := uint64(ctx.BlockHeight())-params.SignedValsetsWindow > vs.Height
+		signedWithinWindow := uint64(ctx.BlockHeight()) > params.SignedValsetsWindow && uint64(ctx.BlockHeight())-params.SignedValsetsWindow > vs.Height
 		switch {
 		// #1 condition
 		// We look through the full bonded validator set (not just the active set, include unbonding validators)
@@ -62,7 +62,7 @@ func EndBlocker(ctx sdk.Context, k keeper.Keeper) {
 	// and we slash users who haven't signed a batch confirmation that is >15hrs in blocks old
 	batches := k.GetOutgoingTxBatches(ctx)
 	for _, batch := range batches {
-		signedWithinWindow := uint64(ctx.BlockHeight())-params.SignedBatchesWindow > batch.Block
+		signedWithinWindow := uint64(ctx.BlockHeight()) > params.SignedBatchesWindow && uint64(ctx.BlockHeight())-params.SignedBatchesWindow > batch.Block
 		if signedWithinWindow {
 			confirms := k.GetBatchConfirmByNonceAndTokenContract(ctx, batch.BatchNonce, batch.TokenContract)
 			for _, val := range currentBondedSet {
@@ -96,12 +96,14 @@ func EndBlocker(ctx sdk.Context, k keeper.Keeper) {
 			var unObs []types.Attestation
 			oneObserved := false
 			for _, att := range atts {
-				if att.Observed == true {
+				if att.Observed {
 					oneObserved = true
 					continue
 				}
 				unObs = append(unObs, att)
 			}
+			// if one is observed delete the *other* attestations, do not delete
+			// the original as we will need it later.
 			if oneObserved {
 				for _, att := range unObs {
 					for _, valaddr := range att.Votes {
@@ -118,11 +120,9 @@ func EndBlocker(ctx sdk.Context, k keeper.Keeper) {
 
 		if len(atts) == 1 {
 			att := atts[0]
-			signedWithinWindow := uint64(ctx.BlockHeight())-params.SignedClaimsWindow > att.Height
-			if !att.Observed {
-				// what to do if we have unobserved attestations that are past the signing window
-			}
-			if signedWithinWindow {
+			windowPassed := uint64(ctx.BlockHeight()) > params.SignedClaimsWindow && uint64(ctx.BlockHeight())-params.SignedClaimsWindow > att.Height
+			// if the signing window has passed and the attestation is still unobserved wait.
+			if windowPassed && att.Observed {
 				for _, bv := range currentBondedSet {
 					found := false
 					for _, val := range att.Votes {
