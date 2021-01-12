@@ -126,9 +126,9 @@ func (am AppModule) QuerierRoute() string {
 	return types.QuerierRoute
 }
 
-// LegacyQuerierHandler returns a nil Querier.
-func (am AppModule) LegacyQuerierHandler(legacyQuerierCdc *codec.LegacyAmino) sdk.Querier {
-	return nil
+// LegacyQuerierHandler returns the peggy Querier.
+func (am AppModule) LegacyQuerierHandler(_ *codec.LegacyAmino) sdk.Querier {
+	return keeper.NewQuerier(am.keeper)
 }
 
 // RegisterServices registers module services.
