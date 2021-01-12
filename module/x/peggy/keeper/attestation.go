@@ -252,7 +252,11 @@ func (k Keeper) GetLastEventNonceByValidator(ctx sdk.Context, validator sdk.ValA
 	bytes := store.Get(types.GetLastEventNonceByValidatorKey(validator))
 
 	if len(bytes) == 0 {
-		return 0
+		// in the case that we have no existing value this is the first
+		// time a validator is submitting a claim. Since we don't want to force
+		// them to replay the entire history of all events ever we should start
+		// at the latest observed event on chain.
+		return k.GetLastObservedEventNonce(ctx)
 	}
 	return types.UInt64FromBytes(bytes)
 }
