@@ -8,6 +8,10 @@ import (
 
 // EndBlocker is called at the end of every block
 func EndBlocker(ctx sdk.Context, k keeper.Keeper) {
+	slashing(ctx, k)
+}
+
+func slashing(ctx sdk.Context, k keeper.Keeper) {
 	params := k.GetParams(ctx)
 	currentBondedSet := k.StakingKeeper.GetBondedValidatorsByPower(ctx)
 
@@ -150,4 +154,20 @@ func EndBlocker(ctx sdk.Context, k keeper.Keeper) {
 
 	// TODO: prune outgoing tx batches while looping over them above, older than 15h and confirmed
 	// TODO: prune claims, attestations
+}
+
+// Iterate over all attestations currently being voted on in order of nonce and
+// "Observe" those who have passed the threshold. Break the loop once we see
+// an attestation that has not passed the threshold
+func attestationTally(ctx sdk.Context, k keeper.Keeper) {
+	attmap := k.GetAttestationMapping(ctx)
+	for _, atts := range attmap {
+		for _, att := range atts {
+			if att.Observed {
+				continue
+			}
+			att.
+			// k.TryAttestation(ctx, &att, )
+		}
+	}
 }
