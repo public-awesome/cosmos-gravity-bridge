@@ -7,58 +7,28 @@ import (
 	"github.com/althea-net/peggy/module/x/peggy/types"
 	"github.com/cosmos/cosmos-sdk/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
-// AddClaim starts the following process chain:
-// - Records that a given validator has made a claim about a given ethereum event, checking that the event nonce is contiguous
-//   (non contiguous eventNonces indicate out of order events which can cause double spends)
-// - Either creates a new attestation or adds the validator's vote to the existing attestation for this event
-// - Checks if the attestation has enough votes to be considered "Observed", then attempts to apply it to the
-//   consensus state (e.g. minting tokens for a deposit event)
-// - If so, marks it "Observed" and emits an event
-func (k Keeper) AddClaim(ctx sdk.Context, details types.EthereumClaim) (*types.Attestation, error) {
-	if err := k.storeClaim(ctx, details); err != nil {
-		return nil, sdkerrors.Wrap(err, "claim")
-	}
-
-	att := k.voteForAttestation(ctx, details)
-
-	// TODO-JT: tryAttestation is all being moved to endblock
-	// k.tryAttestation(ctx, att, details)
-
-	k.SetAttestation(ctx, att, details)
-
-	return att, nil
-}
-
-// storeClaim persists a claim. Fails when a claim submitted by an Eth signer does not increment the event nonce by exactly 1.
-func (k Keeper) storeClaim(ctx sdk.Context, details types.EthereumClaim) error {
+func (k Keeper) Testify(ctx sdk.Context, details types.EthereumClaim) (*types.Attestation, error) {
 	// Check that the nonce of this event is exactly one higher than the last nonce stored by this validator.
-	// We check the event nonce in processAttestation as well, but checking it here gives individual eth signers a chance to retry.
+	// We check the event nonce in processAttestation as well, but checking it here gives individual eth signers a chance to retry,
+	// and prevents validators from submitting two claims with the same nonce
 	lastEventNonce := k.GetLastEventNonceByValidator(ctx, sdk.ValAddress(details.GetClaimer()))
 	if details.GetEventNonce() != lastEventNonce+1 {
-		return types.ErrNonContiguousEventNonce
+		return nil, types.ErrNonContiguousEventNonce
 	}
 	valAddr := k.GetOrchestratorValidator(ctx, details.GetClaimer())
 	if valAddr == nil {
 		panic("Could not find ValAddr for delegate key, should be checked by now")
 	}
 	k.setLastEventNonceByValidator(ctx, valAddr, details.GetEventNonce())
+
 	// Store the claim
 	genericClaim, _ := types.GenericClaimfromInterface(details)
 	store := ctx.KVStore(k.storeKey)
 	cKey := types.GetClaimKey(details)
 	store.Set(cKey, k.cdc.MustMarshalBinaryBare(genericClaim))
-	return nil
-}
 
-// voteForAttestation either gets the attestation for this claim from storage, or creates one if this is the first time a validator
-// has submitted a claim for this exact event
-func (k Keeper) voteForAttestation(
-	ctx sdk.Context,
-	details types.EthereumClaim,
-) *types.Attestation {
 	// Tries to get an attestation with the same eventNonce and details as the claim that was submitted.
 	att := k.GetAttestation(ctx, details.GetEventNonce(), details)
 
@@ -70,21 +40,90 @@ func (k Keeper) voteForAttestation(
 		}
 	}
 
-	valAddr := k.GetOrchestratorValidator(ctx, details.GetClaimer())
-	if valAddr == nil {
-		panic("Could not find ValAddr for delegate key, should be checked by now")
-	}
-
 	// Add the validator's vote to this attestation
 	att.Votes = append(att.Votes, valAddr.String())
 
-	return att
+	k.SetAttestation(ctx, att, details)
+
+	return att, nil
 }
 
-// tryAttestation checks if an attestation has enough votes to be applied to the consensus state
+// AddClaim starts the following process chain:
+// - Records that a given validator has made a claim about a given ethereum event, checking that the event nonce is contiguous
+//   (non contiguous eventNonces indicate out of order events which can cause double spends)
+// - Either creates a new attestation or adds the validator's vote to the existing attestation for this event
+// - Checks if the attestation has enough votes to be considered "Observed", then attempts to apply it to the
+//   consensus state (e.g. minting tokens for a deposit event)
+// - If so, marks it "Observed" and emits an event
+// func (k Keeper) AddClaim(ctx sdk.Context, details types.EthereumClaim) (*types.Attestation, error) {
+// 	if err := k.storeClaim(ctx, details); err != nil {
+// 		return nil, sdkerrors.Wrap(err, "claim")
+// 	}
+
+// 	att := k.voteForAttestation(ctx, details)
+
+// 	// TODO-JT: tryAttestation is all being moved to endblock
+// 	// k.tryAttestation(ctx, att, details)
+
+// 	k.SetAttestation(ctx, att, details)
+
+// 	return att, nil
+// }
+
+// storeClaim persists a claim. Fails when a claim submitted by an Eth signer does not increment the event nonce by exactly 1.
+// func (k Keeper) storeClaim(ctx sdk.Context, details types.EthereumClaim) error {
+// 	// Check that the nonce of this event is exactly one higher than the last nonce stored by this validator.
+// 	// We check the event nonce in processAttestation as well, but checking it here gives individual eth signers a chance to retry,
+// 	// and prevents validators from submitting two claims with the same nonce
+// 	lastEventNonce := k.GetLastEventNonceByValidator(ctx, sdk.ValAddress(details.GetClaimer()))
+// 	if details.GetEventNonce() != lastEventNonce+1 {
+// 		return types.ErrNonContiguousEventNonce
+// 	}
+// 	valAddr := k.GetOrchestratorValidator(ctx, details.GetClaimer())
+// 	if valAddr == nil {
+// 		panic("Could not find ValAddr for delegate key, should be checked by now")
+// 	}
+// 	k.setLastEventNonceByValidator(ctx, valAddr, details.GetEventNonce())
+// 	// Store the claim
+// 	genericClaim, _ := types.GenericClaimfromInterface(details)
+// 	store := ctx.KVStore(k.storeKey)
+// 	cKey := types.GetClaimKey(details)
+// 	store.Set(cKey, k.cdc.MustMarshalBinaryBare(genericClaim))
+// 	return nil
+// }
+
+// voteForAttestation either gets the attestation for this claim from storage, or creates one if this is the first time a validator
+// has submitted a claim for this exact event
+// func (k Keeper) voteForAttestation(
+// 	ctx sdk.Context,
+// 	details types.EthereumClaim,
+// ) *types.Attestation {
+// 	// Tries to get an attestation with the same eventNonce and details as the claim that was submitted.
+// 	att := k.GetAttestation(ctx, details.GetEventNonce(), details)
+
+// 	// If it does not exist, create a new one.
+// 	if att == nil {
+// 		att = &types.Attestation{
+// 			EventNonce: details.GetEventNonce(),
+// 			Observed:   false,
+// 		}
+// 	}
+
+// 	valAddr := k.GetOrchestratorValidator(ctx, details.GetClaimer())
+// 	if valAddr == nil {
+// 		panic("Could not find ValAddr for delegate key, should be checked by now")
+// 	}
+
+// 	// Add the validator's vote to this attestation
+// 	att.Votes = append(att.Votes, valAddr.String())
+
+// 	return att
+// }
+
+// TryAttestation checks if an attestation has enough votes to be applied to the consensus state
 // and has not already been marked Observed, then calls processAttestation to actually apply it to the state,
 // and then marks it Observed and emits an event.
-func (k Keeper) TryAttestation(ctx sdk.Context, att *types.Attestation /* claim types.EthereumClaim*/) {
+func (k Keeper) TryAttestation(ctx sdk.Context, att *types.Attestation, claim types.EthereumClaim) {
 	// If the attestation has not yet been Observed, sum up the votes and see if it is ready to apply to the state.
 	// This conditional stops the attestation from accidentally being applied twice.
 	if !att.Observed {
@@ -115,7 +154,7 @@ func (k Keeper) TryAttestation(ctx sdk.Context, att *types.Attestation /* claim 
 
 // emitObservedEvent emits an event with information about an attestation that has been applied to
 // consensus state.
-func (k Keeper) emitObservedEvent(ctx sdk.Context, att *types.Attestation /* claim types.EthereumClaim*/) {
+func (k Keeper) emitObservedEvent(ctx sdk.Context, att *types.Attestation, claim types.EthereumClaim) {
 	observationEvent := sdk.NewEvent(
 		types.EventTypeObservation,
 		sdk.NewAttribute(sdk.AttributeKeyModule, types.ModuleName),
@@ -130,7 +169,7 @@ func (k Keeper) emitObservedEvent(ctx sdk.Context, att *types.Attestation /* cla
 }
 
 // processAttestation actually applies the attestation to the consensus state
-func (k Keeper) processAttestation(ctx sdk.Context, att *types.Attestation /* claim types.EthereumClaim*/) {
+func (k Keeper) processAttestation(ctx sdk.Context, att *types.Attestation, claim types.EthereumClaim) {
 	lastEventNonce := k.GetLastObservedEventNonce(ctx)
 	if att.EventNonce != uint64(lastEventNonce)+1 {
 		// TODO: We need to figure out how to handle this situation, and whether it is even possible.
