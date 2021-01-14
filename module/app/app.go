@@ -97,7 +97,7 @@ import (
 const appName = "app"
 
 var (
-	// DefaultNodeHome sets the folder where the applcation data and configuration will be stored
+	// DefaultNodeHome sets the folder where the application data and configuration will be stored
 	DefaultNodeHome string
 
 	// ModuleBasics The module BasicManager is in charge of setting up basic,

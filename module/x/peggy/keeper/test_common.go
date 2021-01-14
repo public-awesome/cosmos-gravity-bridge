@@ -204,6 +204,7 @@ type TestInput struct {
 	Context       sdk.Context
 	Marshaler     codec.Marshaler
 	LegacyAmino   *codec.LegacyAmino
+	QueryClient   types.QueryClient
 }
 
 // SetupFiveValChain does all the initialization for a 5 Validator chain using the keys here
@@ -287,8 +288,9 @@ func CreateTestEnv(t *testing.T) TestInput {
 		Time:   time.Date(2020, time.April, 22, 12, 0, 0, 0, time.UTC),
 	}, false, log.TestingLogger())
 
+	ir := codectypes.NewInterfaceRegistry()
 	cdc := MakeTestCodec()
-	marshaler := MakeTestMarshaler()
+	marshaler := MakeTestMarshaler(ir)
 
 	paramsKeeper := paramskeeper.NewKeeper(marshaler, cdc, keyParams, tkeyParams)
 	paramsKeeper.Subspace(authtypes.ModuleName)
@@ -383,6 +385,10 @@ func CreateTestEnv(t *testing.T) TestInput {
 
 	k := NewKeeper(marshaler, peggyKey, getSubspace(paramsKeeper, types.DefaultParamspace), stakingKeeper, bankKeeper)
 
+	queryHelper := baseapp.NewQueryServerTestHelper(ctx, ir)
+	types.RegisterQueryServer(queryHelper, k)
+	queryClient := types.NewQueryClient(queryHelper)
+
 	k.SetParams(ctx, TestingPeggyParams)
 
 	return TestInput{
@@ -395,6 +401,7 @@ func CreateTestEnv(t *testing.T) TestInput {
 		Context:       ctx,
 		Marshaler:     marshaler,
 		LegacyAmino:   cdc,
+		QueryClient:   queryClient,
 	}
 }
 
@@ -419,8 +426,7 @@ func MakeTestCodec() *codec.LegacyAmino {
 }
 
 // MakeTestMarshaler creates a proto codec for use in testing
-func MakeTestMarshaler() codec.Marshaler {
-	interfaceRegistry := codectypes.NewInterfaceRegistry()
+func MakeTestMarshaler(interfaceRegistry codectypes.InterfaceRegistry) codec.Marshaler {
 	std.RegisterInterfaces(interfaceRegistry)
 	ModuleBasics.RegisterInterfaces(interfaceRegistry)
 	types.RegisterInterfaces(interfaceRegistry)
