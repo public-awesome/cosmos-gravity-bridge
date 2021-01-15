@@ -87,22 +87,6 @@ func (k Keeper) TryAttestation(ctx sdk.Context, att *types.Attestation) {
 	}
 }
 
-// emitObservedEvent emits an event with information about an attestation that has been applied to
-// consensus state.
-func (k Keeper) emitObservedEvent(ctx sdk.Context, att *types.Attestation, claim types.EthereumClaim) {
-	observationEvent := sdk.NewEvent(
-		types.EventTypeObservation,
-		sdk.NewAttribute(sdk.AttributeKeyModule, types.ModuleName),
-		sdk.NewAttribute(types.AttributeKeyAttestationType, string(claim.GetType())),
-		sdk.NewAttribute(types.AttributeKeyContract, k.GetBridgeContractAddress(ctx)),
-		sdk.NewAttribute(types.AttributeKeyBridgeChainID, strconv.Itoa(int(k.GetBridgeChainID(ctx)))),
-		sdk.NewAttribute(types.AttributeKeyAttestationID, string(types.GetAttestationKey(claim.GetEventNonce(), claim.ClaimHash()))), // todo: serialize with hex/ base64 ?
-		sdk.NewAttribute(types.AttributeKeyNonce, fmt.Sprint(claim.GetEventNonce())),
-		// TODO: do we want to emit more information?
-	)
-	ctx.EventManager().EmitEvent(observationEvent)
-}
-
 // processAttestation actually applies the attestation to the consensus state
 func (k Keeper) processAttestation(ctx sdk.Context, att *types.Attestation, claim types.EthereumClaim) {
 	lastEventNonce := k.GetLastObservedEventNonce(ctx)
@@ -128,6 +112,22 @@ func (k Keeper) processAttestation(ctx sdk.Context, att *types.Attestation, clai
 
 		// TODO: after we commit, delete the outgoingtxbatch that this claim references
 	}
+}
+
+// emitObservedEvent emits an event with information about an attestation that has been applied to
+// consensus state.
+func (k Keeper) emitObservedEvent(ctx sdk.Context, att *types.Attestation, claim types.EthereumClaim) {
+	observationEvent := sdk.NewEvent(
+		types.EventTypeObservation,
+		sdk.NewAttribute(sdk.AttributeKeyModule, types.ModuleName),
+		sdk.NewAttribute(types.AttributeKeyAttestationType, string(claim.GetType())),
+		sdk.NewAttribute(types.AttributeKeyContract, k.GetBridgeContractAddress(ctx)),
+		sdk.NewAttribute(types.AttributeKeyBridgeChainID, strconv.Itoa(int(k.GetBridgeChainID(ctx)))),
+		sdk.NewAttribute(types.AttributeKeyAttestationID, string(types.GetAttestationKey(claim.GetEventNonce(), claim.ClaimHash()))), // todo: serialize with hex/ base64 ?
+		sdk.NewAttribute(types.AttributeKeyNonce, fmt.Sprint(claim.GetEventNonce())),
+		// TODO: do we want to emit more information?
+	)
+	ctx.EventManager().EmitEvent(observationEvent)
 }
 
 // SetAttestation sets the attestation in the store
