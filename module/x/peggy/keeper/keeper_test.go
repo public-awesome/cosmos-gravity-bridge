@@ -105,8 +105,8 @@ func TestAttestationIterator(t *testing.T) {
 		CosmosReceiver: AccAddrs[0].String(),
 		Orchestrator:   AccAddrs[0].String(),
 	}
-	input.PeggyKeeper.SetAttestation(ctx, att1, dep1)
-	input.PeggyKeeper.SetAttestation(ctx, att2, dep2)
+	input.PeggyKeeper.SetAttestation(ctx, att1, dep1.ClaimHash())
+	input.PeggyKeeper.SetAttestation(ctx, att2, dep2.ClaimHash())
 
 	atts := []types.Attestation{}
 	input.PeggyKeeper.IterateAttestaions(ctx, func(_ []byte, att types.Attestation) bool {

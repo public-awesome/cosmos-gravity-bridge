@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+//TODO-JT: need to update this stuff to stop using claims
 func TestHandleMsgSendToEth(t *testing.T) {
 	var (
 		userCosmosAddr, _            = sdk.AccAddressFromBech32("cosmos1990z7dqsvh8gthw9pa5sn4wuy2xrsd80mg5z6y")
