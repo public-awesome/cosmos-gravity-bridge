@@ -9,6 +9,7 @@ import (
 // EndBlocker is called at the end of every block
 func EndBlocker(ctx sdk.Context, k keeper.Keeper) {
 	slashing(ctx, k)
+	attestationTally(ctx, k)
 }
 
 func slashing(ctx sdk.Context, k keeper.Keeper) {
@@ -178,10 +179,15 @@ func attestationTally(ctx sdk.Context, k keeper.Keeper) {
 	attmap := k.GetAttestationMapping(ctx)
 	for _, atts := range attmap {
 		for _, att := range atts {
+			// If it was already observed we don't need to do anything
 			if att.Observed {
 				continue
 			}
 			k.TryAttestation(ctx, &att)
+			// If it was not Observed, break the loop
+			if !att.Observed {
+				break
+			}
 		}
 	}
 }
