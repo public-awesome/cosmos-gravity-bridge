@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/althea-net/peggy/module/x/peggy/types"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -22,33 +23,56 @@ func (k Keeper) Testify(ctx sdk.Context, claim types.EthereumClaim) (*types.Atte
 	}
 	k.setLastEventNonceByValidator(ctx, valAddr, claim.GetEventNonce())
 
-	// Store the claim
-	// genericClaim, _ := types.GenericClaimfromInterface(claim)
-	// store := ctx.KVStore(k.storeKey)
-	// cKey := types.GetClaimKey(claim)
-	// store.Set(cKey, k.cdc.MustMarshalBinaryBare(genericClaim))
-
 	// Tries to get an attestation with the same eventNonce and claim as the claim that was submitted.
 	att := k.GetAttestation(ctx, claim.GetEventNonce(), claim.ClaimHash())
 
 	// If it does not exist, create a new one.
 	if att == nil {
 		att = &types.Attestation{
-			EventNonce: claim.GetEventNonce(),
-			Observed:   false,
+			Observed: false,
 		}
+		any, err := codectypes.NewAnyWithValue(att)
+		if err != nil {
+			return nil, err
+		}
+		att.Claim = any
 	}
 
 	// Add the validator's vote to this attestation
 	att.Votes = append(att.Votes, valAddr.String())
 
-	att.ClaimHash = claim.ClaimHash()
+	// Update the block height
 	att.Height = uint64(ctx.BlockHeight())
 
-	k.SetAttestation(ctx, att, claim.ClaimHash())
+	k.SetAttestation(ctx, claim.GetEventNonce(), claim.ClaimHash(), att)
 
 	return att, nil
 }
+
+// SetPubKey - Implements sdk.AccountI.
+// func (acc *BaseAccount) SetPubKey(pubKey cryptotypes.PubKey) error {
+// 	if pubKey == nil {
+// 	 acc.PubKey = nil
+// 	 return nil
+// 	}
+// 	any, err := codectypes.NewAnyWithValue(pubKey)
+// 	if err == nil {
+// 	 acc.PubKey = any
+// 	}
+// 	return err
+//    }
+
+// GetPubKey - Implements sdk.AccountI.
+// func (att BaseAccount) GetPubKey() (pk cryptotypes.PubKey) {
+// 	if acc.PubKey == nil {
+// 	 return nil
+// 	}
+// content, ok := att.Claim.GetCachedValue().(types.EthereumClaim)
+// if !ok {
+//  return nil
+// }
+// 	return content
+//    }
 
 // AddClaim starts the following process chain:
 // - Records that a given validator has made a claim about a given ethereum event, checking that the event nonce is contiguous
@@ -125,7 +149,13 @@ func (k Keeper) Testify(ctx sdk.Context, claim types.EthereumClaim) (*types.Atte
 // TryAttestation checks if an attestation has enough votes to be applied to the consensus state
 // and has not already been marked Observed, then calls processAttestation to actually apply it to the state,
 // and then marks it Observed and emits an event.
-func (k Keeper) TryAttestation(ctx sdk.Context, att *types.Attestation, claim types.EthereumClaim) {
+func (k Keeper) TryAttestation(ctx sdk.Context, att *types.Attestation) {
+	claim, ok := att.Claim.GetCachedValue().(types.EthereumClaim)
+	if !ok {
+		// TODO-JT panic or error here?
+		return
+	}
+
 	// If the attestation has not yet been Observed, sum up the votes and see if it is ready to apply to the state.
 	// This conditional stops the attestation from accidentally being applied twice.
 	if !att.Observed {
@@ -163,8 +193,8 @@ func (k Keeper) emitObservedEvent(ctx sdk.Context, att *types.Attestation, claim
 		sdk.NewAttribute(types.AttributeKeyAttestationType, string(claim.GetType())),
 		sdk.NewAttribute(types.AttributeKeyContract, k.GetBridgeContractAddress(ctx)),
 		sdk.NewAttribute(types.AttributeKeyBridgeChainID, strconv.Itoa(int(k.GetBridgeChainID(ctx)))),
-		sdk.NewAttribute(types.AttributeKeyAttestationID, string(types.GetAttestationKey(att.EventNonce, claim.ClaimHash()))), // todo: serialize with hex/ base64 ?
-		sdk.NewAttribute(types.AttributeKeyNonce, fmt.Sprint(att.EventNonce)),
+		sdk.NewAttribute(types.AttributeKeyAttestationID, string(types.GetAttestationKey(claim.GetEventNonce(), claim.ClaimHash()))), // todo: serialize with hex/ base64 ?
+		sdk.NewAttribute(types.AttributeKeyNonce, fmt.Sprint(claim.GetEventNonce())),
 		// TODO: do we want to emit more information?
 	)
 	ctx.EventManager().EmitEvent(observationEvent)
@@ -173,20 +203,12 @@ func (k Keeper) emitObservedEvent(ctx sdk.Context, att *types.Attestation, claim
 // processAttestation actually applies the attestation to the consensus state
 func (k Keeper) processAttestation(ctx sdk.Context, att *types.Attestation, claim types.EthereumClaim) {
 	lastEventNonce := k.GetLastObservedEventNonce(ctx)
-	if att.EventNonce != uint64(lastEventNonce)+1 {
-		// TODO: We need to figure out how to handle this situation, and whether it is even possible.
-		// I'm panicking here because if attestations are applied to the consensus state out of order, it WILL cause a
-		// double spend.
-		// In theory, the fact that all votes on attestations are strictly ordered when the claim is submitted should mean
-		// that this is impossible, but we should know for sure before removing the check. If it is possible, we need to
-		// figure out how to recover.
+	if claim.GetEventNonce() != uint64(lastEventNonce)+1 {
 		panic("attempting to apply events to state out of order")
 	}
-	k.setLastObservedEventNonce(ctx, att.EventNonce)
+	k.setLastObservedEventNonce(ctx, claim.GetEventNonce())
 
 	// then execute in a new Tx so that we can store state on failure
-	// TODO: It seems that the validator who puts an attestation over the threshold of votes will also
-	// be charged for the gas of applying it to the consensus state. We should figure out a way to avoid this.
 	xCtx, commit := ctx.CacheContext()
 	if err := k.AttestationHandler.Handle(xCtx, *att, claim); err != nil { // execute with a transient storage
 		// If the attestation fails, something has gone wrong and we can't recover it. Log and move on
@@ -195,8 +217,8 @@ func (k Keeper) processAttestation(ctx sdk.Context, att *types.Attestation, clai
 		k.logger(ctx).Error("attestation failed",
 			"cause", err.Error(),
 			"claim type", claim.GetType(),
-			"id", types.GetAttestationKey(att.EventNonce, claim.ClaimHash()),
-			"nonce", fmt.Sprint(att.EventNonce),
+			"id", types.GetAttestationKey(claim.GetEventNonce(), claim.ClaimHash()),
+			"nonce", fmt.Sprint(claim.GetEventNonce()),
 		)
 	} else {
 		commit() // persist transient storage
@@ -206,18 +228,18 @@ func (k Keeper) processAttestation(ctx sdk.Context, att *types.Attestation, clai
 }
 
 // SetAttestation sets the attestation in the store
-func (k Keeper) SetAttestation(ctx sdk.Context, att *types.Attestation, claimHash []byte) {
+func (k Keeper) SetAttestation(ctx sdk.Context, eventNonce uint64, claimHash []byte, att *types.Attestation) {
 	store := ctx.KVStore(k.storeKey)
 	// att.ClaimHash = claim.ClaimHash()
 	// att.Height = uint64(ctx.BlockHeight())
-	aKey := types.GetAttestationKey(att.EventNonce, claimHash)
+	aKey := types.GetAttestationKey(eventNonce, claimHash)
 	store.Set(aKey, k.cdc.MustMarshalBinaryBare(att))
 }
 
 // SetAttestationUnsafe sets the attestation w/o setting height and claim hash
-func (k Keeper) SetAttestationUnsafe(ctx sdk.Context, att *types.Attestation) {
+func (k Keeper) SetAttestationUnsafe(ctx sdk.Context, eventNonce uint64, claimHash []byte, att *types.Attestation) {
 	store := ctx.KVStore(k.storeKey)
-	aKey := types.GetAttestationKeyWithHash(att.EventNonce, att.ClaimHash)
+	aKey := types.GetAttestationKeyWithHash(eventNonce, claimHash)
 	store.Set(aKey, k.cdc.MustMarshalBinaryBare(att))
 }
 
@@ -235,19 +257,25 @@ func (k Keeper) GetAttestation(ctx sdk.Context, eventNonce uint64, claimHash []b
 }
 
 // DeleteAttestation deletes an attestation given an event nonce and claim
-func (k Keeper) DeleteAttestation(ctx sdk.Context, att types.Attestation) {
+func (k Keeper) DeleteAttestation(ctx sdk.Context, eventNonce uint64, claimHash []byte, att *types.Attestation) {
 	store := ctx.KVStore(k.storeKey)
-	store.Delete(types.GetAttestationKeyWithHash(att.EventNonce, att.ClaimHash))
+	store.Delete(types.GetAttestationKeyWithHash(eventNonce, claimHash))
 }
 
 // GetAttestationMapping returns a mapping of eventnonce -> attestations at that nonce
 func (k Keeper) GetAttestationMapping(ctx sdk.Context) (out map[uint64][]types.Attestation) {
 	out = make(map[uint64][]types.Attestation)
 	k.IterateAttestaions(ctx, func(_ []byte, att types.Attestation) bool {
-		if val, ok := out[att.EventNonce]; !ok {
-			out[att.EventNonce] = []types.Attestation{att}
+		claim, ok := att.Claim.GetCachedValue().(types.EthereumClaim)
+		// TODO-JT panic if not ok?
+		if !ok {
+			panic("couldn't cast to claim")
+		}
+
+		if val, ok := out[claim.GetEventNonce()]; !ok {
+			out[claim.GetEventNonce()] = []types.Attestation{att}
 		} else {
-			out[att.EventNonce] = append(val, att)
+			out[claim.GetEventNonce()] = append(val, att)
 		}
 		return false
 	})

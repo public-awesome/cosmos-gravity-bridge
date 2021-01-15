@@ -117,14 +117,23 @@ func slashing(ctx sdk.Context, k keeper.Keeper) {
 						k.StakingKeeper.Slash(ctx, cons, ctx.BlockHeight(), k.StakingKeeper.GetLastValidatorPower(ctx, validator), params.SlashFractionConflictingClaim)
 						k.StakingKeeper.Jail(ctx, cons)
 					}
-					k.DeleteAttestation(ctx, att)
+					claim, ok := att.Claim.GetCachedValue().(types.EthereumClaim)
+					// TODO-JT panic if not ok?
+					if !ok {
+						panic("couldn't cast to claim")
+					}
+
+					k.DeleteAttestation(ctx, claim.GetEventNonce(), claim.ClaimHash(), &att)
 				}
 			}
 		}
 
 		if len(atts) == 1 {
 			att := atts[0]
-			windowPassed := uint64(ctx.BlockHeight()) > params.SignedClaimsWindow && uint64(ctx.BlockHeight())-params.SignedClaimsWindow > att.Height
+			// TODO-JT: Review this
+			windowPassed := uint64(ctx.BlockHeight()) > params.SignedClaimsWindow &&
+				uint64(ctx.BlockHeight())-params.SignedClaimsWindow > att.Height
+
 			// if the signing window has passed and the attestation is still unobserved wait.
 			if windowPassed && att.Observed {
 				for _, bv := range currentBondedSet {
@@ -142,7 +151,13 @@ func slashing(ctx sdk.Context, k keeper.Keeper) {
 						k.StakingKeeper.Jail(ctx, cons)
 					}
 				}
-				k.DeleteAttestation(ctx, att)
+				claim, ok := att.Claim.GetCachedValue().(types.EthereumClaim)
+				// TODO-JT panic if not ok?
+				if !ok {
+					panic("couldn't cast to claim")
+				}
+
+				k.DeleteAttestation(ctx, claim.GetEventNonce(), claim.ClaimHash(), &att)
 			}
 		}
 	}
@@ -166,8 +181,7 @@ func attestationTally(ctx sdk.Context, k keeper.Keeper) {
 			if att.Observed {
 				continue
 			}
-			att.
-			// k.TryAttestation(ctx, &att, )
+			k.TryAttestation(ctx, &att)
 		}
 	}
 }

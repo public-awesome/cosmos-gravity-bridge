@@ -32,8 +32,14 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 
 	// reset attestations in state
 	for _, att := range data.Attestations {
+		claim, ok := att.Claim.GetCachedValue().(types.EthereumClaim)
+		// TODO-JT panic if not ok?
+		if !ok {
+			panic("couldn't cast to claim")
+		}
+
 		// TODO: block height?
-		k.SetAttestationUnsafe(ctx, &att)
+		k.SetAttestationUnsafe(ctx, claim.GetEventNonce(), claim.ClaimHash(), &att)
 	}
 }
 
