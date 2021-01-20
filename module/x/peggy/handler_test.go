@@ -109,11 +109,14 @@ func TestHandleCreateEthereumClaimsSingleValidator(t *testing.T) {
 	ctx = ctx.WithBlockTime(myBlockTime)
 	_, err := h(ctx, &ethClaim)
 	require.NoError(t, err)
+
+	EndBlocker(ctx, input.PeggyKeeper)
+
 	// and claim persisted
-	claimFound := input.PeggyKeeper.HasClaim(ctx, &ethClaim)
-	assert.True(t, claimFound)
+	// claimFound := input.PeggyKeeper.HasClaim(ctx, &ethClaim)
+	// assert.True(t, claimFound)
 	// and attestation persisted
-	a := input.PeggyKeeper.GetAttestation(ctx, myNonce, &ethClaim)
+	a := input.PeggyKeeper.GetAttestation(ctx, myNonce, ethClaim.ClaimHash())
 	require.NotNil(t, a)
 	// and vouchers added to the account
 	balance := input.BankKeeper.GetAllBalances(ctx, myCosmosAddr)
@@ -222,10 +225,10 @@ func TestHandleCreateEthereumClaimsMultiValidator(t *testing.T) {
 	_, err := h(ctx, &ethClaim1)
 	require.NoError(t, err)
 	// and claim persisted
-	claimFound1 := input.PeggyKeeper.HasClaim(ctx, &ethClaim1)
-	assert.True(t, claimFound1)
+	// claimFound1 := input.PeggyKeeper.HasClaim(ctx, &ethClaim1)
+	// assert.True(t, claimFound1)
 	// and attestation persisted
-	a1 := input.PeggyKeeper.GetAttestation(ctx, myNonce, &ethClaim1)
+	a1 := input.PeggyKeeper.GetAttestation(ctx, myNonce, ethClaim1.ClaimHash())
 	require.NotNil(t, a1)
 	// and vouchers not yet added to the account
 	balance1 := input.BankKeeper.GetAllBalances(ctx, myCosmosAddr)
@@ -237,10 +240,10 @@ func TestHandleCreateEthereumClaimsMultiValidator(t *testing.T) {
 	require.NoError(t, err)
 
 	// and claim persisted
-	claimFound2 := input.PeggyKeeper.HasClaim(ctx, &ethClaim2)
-	assert.True(t, claimFound2)
+	// claimFound2 := input.PeggyKeeper.HasClaim(ctx, &ethClaim2)
+	// assert.True(t, claimFound2)
 	// and attestation persisted
-	a2 := input.PeggyKeeper.GetAttestation(ctx, myNonce, &ethClaim1)
+	a2 := input.PeggyKeeper.GetAttestation(ctx, myNonce, ethClaim1.ClaimHash())
 	require.NotNil(t, a2)
 	// and vouchers now added to the account
 	balance2 := input.BankKeeper.GetAllBalances(ctx, myCosmosAddr)
@@ -252,10 +255,10 @@ func TestHandleCreateEthereumClaimsMultiValidator(t *testing.T) {
 	require.NoError(t, err)
 
 	// and claim persisted
-	claimFound3 := input.PeggyKeeper.HasClaim(ctx, &ethClaim2)
-	assert.True(t, claimFound3)
+	// claimFound3 := input.PeggyKeeper.HasClaim(ctx, &ethClaim2)
+	// assert.True(t, claimFound3)
 	// and attestation persisted
-	a3 := input.PeggyKeeper.GetAttestation(ctx, myNonce, &ethClaim1)
+	a3 := input.PeggyKeeper.GetAttestation(ctx, myNonce, ethClaim1.ClaimHash())
 	require.NotNil(t, a3)
 	// and no additional added to the account
 	balance3 := input.BankKeeper.GetAllBalances(ctx, myCosmosAddr)

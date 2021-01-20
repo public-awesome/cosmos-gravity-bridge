@@ -9,7 +9,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-func (k Keeper) Testify(ctx sdk.Context, claim types.EthereumClaim) (*types.Attestation, error) {
+// TODO-JT: carefully look at atomicity of this function
+func (k Keeper) Attest(ctx sdk.Context, claim types.EthereumClaim, anyClaim *codectypes.Any) (*types.Attestation, error) {
 	// Check that the nonce of this event is exactly one higher than the last nonce stored by this validator.
 	// We check the event nonce in processAttestation as well, but checking it here gives individual eth signers a chance to retry,
 	// and prevents validators from submitting two claims with the same nonce
@@ -21,6 +22,7 @@ func (k Keeper) Testify(ctx sdk.Context, claim types.EthereumClaim) (*types.Atte
 	if valAddr == nil {
 		panic("Could not find ValAddr for delegate key, should be checked by now")
 	}
+	// TODO-JT: make absolutely sure that the function can't fail after this
 	k.setLastEventNonceByValidator(ctx, valAddr, claim.GetEventNonce())
 
 	// Tries to get an attestation with the same eventNonce and claim as the claim that was submitted.
@@ -31,16 +33,15 @@ func (k Keeper) Testify(ctx sdk.Context, claim types.EthereumClaim) (*types.Atte
 		att = &types.Attestation{
 			Observed: false,
 		}
-		any, err := codectypes.NewAnyWithValue(att)
-		if err != nil {
-			return nil, err
-		}
-		att.Claim = any
+
+		att.Claim = anyClaim
 	}
 
 	// Add the validator's vote to this attestation
 	att.Votes = append(att.Votes, valAddr.String())
 
+	// TODO-JT: we shouldn't update this every single time,
+	// just the first time the attestation is changed
 	// Update the block height
 	att.Height = uint64(ctx.BlockHeight())
 
@@ -56,7 +57,7 @@ func (k Keeper) TryAttestation(ctx sdk.Context, att *types.Attestation) {
 	claim, ok := att.Claim.GetCachedValue().(types.EthereumClaim)
 	if !ok {
 		// TODO-JT panic or error here?
-		return
+		panic("could not cast to claim")
 	}
 
 	// If the attestation has not yet been Observed, sum up the votes and see if it is ready to apply to the state.
